@@ -18,6 +18,19 @@ over leads calling `POST /api/calls`.
 **Never invent or scrape phone numbers.** Only numbers the user gives you go
 into `leads`. Only numbers the Twilio account owns can be caller IDs.
 
+## Applying the deploy answers
+
+The deploy form asks for `company_name`, `primary_market` (US, Europe, Both)
+and `default_from_number`.
+
+- `company_name`: put it in the `<title>` in `index.html` and the sidebar brand
+  label in `src/client/app.tsx`. Nothing else is branded.
+- `primary_market`: only affects `default_country` hints. For "Europe" pre-fill
+  the CSV import's default country with the user's own country when they tell
+  you it; do not narrow `SUPPORTED_COUNTRIES`.
+- `default_from_number`: this is `TWILIO_FROM_NUMBER`. Tell the user to set it
+  as an environment variable (E.164); do not hardcode it in source.
+
 ## Procedure: get a list ready to call
 
 1. Normalise the list. Every phone must be E.164 (`+15551234567`) or national
