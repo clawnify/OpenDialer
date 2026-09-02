@@ -1,0 +1,8 @@
+first_name,last_name,company,phone,country,notes
+Ada,Lovelace,Analytical Engines Ltd,+44 20 7946 0958,GB,Asked for a demo of the new engine
+Grace,Hopper,Compiler Works,(212) 555-0142,US,Prefers mornings
+Linus,Torvalds,Kernel GmbH,030 901820,DE,Callback after 3pm CET
+Margaret,Hamilton,Apollo Software,+1 617 555 0189,US,
+Tim,Berners-Lee,Web Foundation,020 7946 0123,GB,Gatekeeper is Sam
+Ken,Thompson,Bell Systems,555-0100,US,Missing area code: this row is rejected on purpose
+Sophie,Wilson,Acorn Labs,+61 2 9374 4000,AU,Outside supported markets: rejected on purpose

@@ -1,0 +1,18 @@
+# Copy to .dev.vars for local development. Never commit .dev.vars.
+# In production these are set as Environment Variables in Clawnify and injected
+# at deploy time; the app never shows them in the UI.
+
+# Required: REST calls, number sync and webhook signature checks.
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=+15551234567
+
+# Browser calling (Voice JS SDK). Without these three the app falls back to
+# ringing your own phone first, then bridging to the lead.
+TWILIO_TWIML_APP_SID=
+TWILIO_API_KEY_SID=
+TWILIO_API_KEY_SECRET=
+
+# Optional. The app uses the request origin for Twilio callback URLs; set this
+# only when the public URL differs (a tunnel during local development).
+PUBLIC_APP_URL=

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://app.clawnify.com/schema/v1/clawnify.json",
+  "version": 1,
+  "name": "OpenDialer",
+  "description": "Cold call desk for US and European leads. Import a lead list, click Call, talk through the browser with a local caller ID, and log every attempt. Uses your own Twilio account; the telephony layer is isolated so another carrier can be added later.",
+  "icon": "icon.svg",
+  "tags": [
+    "sales",
+    "calling",
+    "dialer",
+    "twilio",
+    "cold-calling"
+  ],
+  "app": {
+    "framework": "react+hono",
+    "database": true,
+    "storage": false
+  },
+  "api": {
+    "public_routes": [
+      {
+        "path": "/api/twilio/*",
+        "methods": [
+          "POST"
+        ]
+      }
+    ]
+  },
+  "env": {
+    "required": [
+      "TWILIO_ACCOUNT_SID",
+      "TWILIO_AUTH_TOKEN",
+      "TWILIO_FROM_NUMBER"
+    ],
+    "optional": [
+      "TWILIO_TWIML_APP_SID",
+      "TWILIO_API_KEY_SID",
+      "TWILIO_API_KEY_SECRET",
+      "PUBLIC_APP_URL"
+    ]
+  },
+  "deploy": {
+    "title": "Deploy OpenDialer",
+    "subtitle": "A browser calling desk on your own Twilio account.",
+    "prompts": [
+      {
+        "key": "company_name",
+        "label": "Company name",
+        "placeholder": "Acme GmbH",
+        "type": "text"
+      },
+      {
+        "key": "primary_market",
+        "label": "Primary market",
+        "type": "select",
+        "options": [
+          "US",
+          "Europe",
+          "Both"
+        ]
+      },
+      {
+        "key": "default_from_number",
+        "label": "Default caller ID (E.164)",
+        "placeholder": "+15551234567",
+        "type": "text"
+      }
+    ]
+  },
+  "agent": "agent.md"
+}
