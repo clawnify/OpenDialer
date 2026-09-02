@@ -45,7 +45,7 @@ async function twilioFetch<T>(env: Bindings, path: string, init: RequestInit = {
 function friendlyTwilioMessage(status: number, code: number | undefined, msg: string): string {
   if (status === 401) return "Twilio rejected the credentials. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.";
   if (code === 21211 || code === 21217) return "Twilio rejected this number as invalid.";
-  if (code === 21219) return "Trial account: Twilio can only call verified numbers. Verify the lead's number in the console or upgrade.";
+  if (code === 21219 || code === 32100) return "Trial account: Twilio blocks bridged calls until the account is upgraded.";
   if (code === 21215 || code === 21216) return "Calling this destination is disabled on your Twilio account (geographic permissions).";
   if (code === 21212 || code === 21210) return "The caller ID is not a number this Twilio account owns.";
   return `Twilio: ${msg}`;

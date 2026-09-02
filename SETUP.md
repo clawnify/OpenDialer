@@ -72,11 +72,16 @@ remaining four need to be added as environment variables.
 Without the last three the app still works in **fallback mode**: it calls the
 phone number you save under **/settings**, then bridges you to the lead.
 
-## 7. Trial accounts
+## 7. Trial accounts: upgrade first
 
-A trial account can only call numbers you have verified under **Phone
-Numbers → Manage → Verified Caller IDs**, and every call starts with Twilio's
-trial announcement. Browser calling works on trial. Upgrade to call leads.
+The current Twilio trial program strips `<Dial><Number>` and the recording
+attributes from TwiML and replaces them with a spoken "not available on trial
+accounts" message. That is exactly the TwiML this app returns, so on a trial
+account the browser connects, hears that message, and no lead is ever dialed.
+The fallback mode bridges the same way and is blocked too.
+
+Upgrade the account (add a payment method) before testing. The only thing a
+trial can exercise is number sync on **/numbers**.
 
 ## 8. Check it
 

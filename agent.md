@@ -78,7 +78,7 @@ Full schemas: `GET /llms.txt` and `GET /api/openapi.json`. Lists are paginated
 - `400` with an `error` string is a validation message meant for the user
   (bad phone, unsupported country, missing configuration). Relay it verbatim.
 - `409` on `POST /api/calls`: the rep already has a live call.
-- `502` prefixed `Twilio:` is the carrier's own message. Trial accounts can only
-  call verified numbers.
+- `502` prefixed `Twilio:` is the carrier's own message. Trial accounts cannot
+  bridge calls at all; the user must upgrade.
 - Every call and every recording costs Twilio money. Syncing numbers and
   reading logs is free.

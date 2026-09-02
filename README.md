@@ -33,7 +33,7 @@ US and Canada, the UK and Ireland, and 14 European countries: DE, FR, ES, IT, NL
 
 ## Setup
 
-The app needs a Twilio account with at least one voice-capable number. [SETUP.md](SETUP.md) walks through the console: number, API key, TwiML App, geographic permissions, and the six environment variables.
+The app needs an upgraded (paid) Twilio account with at least one voice-capable number: Twilio's trial program strips the `<Dial>` that bridges a call to a phone. [SETUP.md](SETUP.md) walks through the console: number, API key, TwiML App, geographic permissions, and the environment variables.
 
 ```
 TWILIO_ACCOUNT_SID      required
