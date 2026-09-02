@@ -6,6 +6,7 @@ import { api, fmtDate, fmtDuration, leadName, type Call, type Lead } from "../ap
 import { Button, Card, Empty, Eyebrow, Zone } from "../components/ui";
 import { CallStatusBadge, LeadStatusChip, OutcomeChip } from "../components/status";
 import { LeadForm } from "./leads";
+import { RecordingPlayer } from "../components/recording-player";
 
 export function LeadDetail() {
   const { id = "" } = useParams();
@@ -123,10 +124,7 @@ export function LeadDetail() {
                         <td className="data px-3 py-2 text-right">{fmtDuration(c.duration_seconds)}</td>
                         <td className="px-3 py-2 text-right last:pr-6">
                           {c.recording_url ? (
-                            <span className="inline-flex items-center gap-2">
-                              <audio controls preload="metadata" src={c.recording_url} className="h-8 w-48" />
-                              <span className="data text-xs text-muted">{fmtDuration(c.recording_duration)}</span>
-                            </span>
+                            <RecordingPlayer src={c.recording_url} duration={c.recording_duration} className="justify-end" />
                           ) : (
                             <span className="text-faint">{c.record ? "–" : "off"}</span>
                           )}

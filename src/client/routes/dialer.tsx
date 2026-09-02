@@ -6,6 +6,7 @@ import { api, fmtDate, fmtDuration, leadName, OUTCOME_LABELS, type Call, type Ca
 import { Button, Card, Chip, Empty, Eyebrow, Zone } from "../components/ui";
 import { CallStatusBadge, OutcomeChip } from "../components/status";
 import { VoiceClient } from "../voice";
+import { RecordingPlayer } from "../components/recording-player";
 
 const LEGAL =
   "You are placing a live outbound call. You are responsible for complying with US TCPA, DNC rules, and European GDPR/ePrivacy and country-specific calling rules. Recording laws vary. Get required consent.";
@@ -327,10 +328,7 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                 />
                 <div className="mt-3 flex items-center justify-between">
                   {call.recording_url ? (
-                    <span className="flex items-center gap-2">
-                      <audio controls preload="metadata" src={call.recording_url} className="h-8 w-56" />
-                      <span className="data text-xs text-muted">{fmtDuration(call.recording_duration)}</span>
-                    </span>
+                    <RecordingPlayer src={call.recording_url} duration={call.recording_duration} />
                   ) : (
                     <span className="text-xs text-faint">{call.record ? "Recording appears here when Twilio delivers it." : "Not recorded."}</span>
                   )}
