@@ -73,6 +73,28 @@
   }
 }
 
+/* Explicit override for hosts that toggle a .dark class instead of the OS setting. */
+:root.dark {
+  --background: #0d1117;
+  --surface: #161b22;
+  --sunken: #1c2128;
+  --foreground: #e6edf3;
+  --muted: #9ba7b3;
+  --faint: #6e7681;
+  --border: #30363d;
+  --ring: #4493f8;
+  --link: #4493f8;
+  --primary: #dd5164; /* coral holds on the dark canvas — no inversion */
+  --primary-hover: #c53a4e;
+  --success: #3fb950;
+  --success-tint: #12261e;
+  --warning: #d29922;
+  --warning-tint: #2a2210;
+  --danger: #f85149;
+  --danger-tint: #2d1518;
+}
+
+
 @layer base {
   html {
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;

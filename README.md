@@ -1,4 +1,9 @@
-<img src="readme-banner.png" alt="OpenDialer preview" width="100%" />
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./readme-banner-dark.png">
+    <img alt="OpenDialer preview" src="./readme-banner.png">
+  </picture>
+</p>
 
 # OpenDialer: The Open-Source Cold Call Desk
 
