@@ -58,7 +58,7 @@ export function registerTwilioWebhooks(app: OpenAPIHono<Env>) {
         actionUrl: urls.dialAction,
         numberStatusUrl: urls.numberStatus,
         recordingUrl: urls.recording,
-        record: true,
+        record: call.record === 1,
       }),
     );
   });
@@ -133,7 +133,8 @@ export function registerTwilioWebhooks(app: OpenAPIHono<Env>) {
     const id = c.req.query("call") || "";
     if (p.RecordingStatus && p.RecordingStatus !== "completed") return c.body(null, 204);
     if (id && p.RecordingUrl) {
-      await run("UPDATE calls SET recording_url = ?, recording_sid = ? WHERE id = ?", [p.RecordingUrl, p.RecordingSid || null, id]);
+      const seconds = p.RecordingDuration ? parseInt(p.RecordingDuration, 10) || null : null;
+      await run("UPDATE calls SET recording_url = ?, recording_sid = ?, recording_duration = ? WHERE id = ?", [p.RecordingUrl, p.RecordingSid || null, seconds, id]);
     }
     return c.body(null, 204);
   });

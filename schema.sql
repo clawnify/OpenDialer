@@ -53,8 +53,11 @@ CREATE TABLE IF NOT EXISTS calls (
   started_at TEXT,
   ended_at TEXT,
   duration_seconds INTEGER,
+  -- Snapshot of the rep's preference when the call was placed.
+  record INTEGER NOT NULL DEFAULT 1,
   recording_url TEXT,
   recording_sid TEXT,
+  recording_duration INTEGER,
   outcome TEXT, -- connected|voicemail|no_answer|busy|wrong_number|not_interested|callback|do_not_call
   notes TEXT NOT NULL DEFAULT '',
   error TEXT NOT NULL DEFAULT '',
@@ -87,5 +90,6 @@ CREATE TABLE IF NOT EXISTS user_settings (
   user_id TEXT PRIMARY KEY,
   callback_number TEXT NOT NULL DEFAULT '',
   default_from_number TEXT NOT NULL DEFAULT '',
+  record_calls INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

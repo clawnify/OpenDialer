@@ -115,9 +115,9 @@ export async function endCall(env: Bindings, callSid: string): Promise<void> {
 }
 
 /** Stream a recording through our auth; the browser never holds Twilio credentials. */
-export async function fetchRecording(env: Bindings, recordingUrl: string): Promise<Response> {
+export async function fetchRecording(env: Bindings, recordingUrl: string, range?: string): Promise<Response> {
   const url = recordingUrl.endsWith(".mp3") || recordingUrl.endsWith(".wav") ? recordingUrl : `${recordingUrl}.mp3`;
-  return fetch(url, { headers: { Authorization: basicAuth(env) } });
+  return fetch(url, { headers: { Authorization: basicAuth(env), ...(range ? { Range: range } : {}) } });
 }
 
 // ── Voice access token ──────────────────────────────────────────────

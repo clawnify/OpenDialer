@@ -122,7 +122,14 @@ export function LeadDetail() {
                         <td className="px-3 py-2"><OutcomeChip outcome={c.outcome} />{c.notes ? <p className="mt-1 text-xs text-muted">{c.notes}</p> : null}</td>
                         <td className="data px-3 py-2 text-right">{fmtDuration(c.duration_seconds)}</td>
                         <td className="px-3 py-2 text-right last:pr-6">
-                          {c.recording_url ? <audio controls preload="none" src={c.recording_url} className="h-8 w-48" /> : <span className="text-faint">–</span>}
+                          {c.recording_url ? (
+                            <span className="inline-flex items-center gap-2">
+                              <audio controls preload="metadata" src={c.recording_url} className="h-8 w-48" />
+                              <span className="data text-xs text-muted">{fmtDuration(c.recording_duration)}</span>
+                            </span>
+                          ) : (
+                            <span className="text-faint">{c.record ? "–" : "off"}</span>
+                          )}
                         </td>
                       </tr>
                     ))}

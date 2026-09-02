@@ -17,6 +17,7 @@ const SettingsSchema = z
     user: z.object({ id: z.string(), name: z.string() }).nullable(),
     callback_number: z.string().openapi({ description: "This rep's phone for the fallback mode" }),
     preferred_from_number: z.string().openapi({ description: "This rep's preferred caller ID; empty = local presence picks" }),
+    record_calls: z.boolean().openapi({ description: "Record this rep's calls (default on)" }),
   })
   .openapi("Settings");
 
@@ -49,7 +50,7 @@ export function registerSettingsRoutes(app: OpenAPIHono<Env>) {
     const cfg = providerConfig(c.env);
     const origin = publicOrigin(c.env, c.req.url);
     const u = user(c);
-    const prefs = await get<{ callback_number: string; default_from_number: string }>("SELECT callback_number, default_from_number FROM user_settings WHERE user_id = ?", [userKey(c)]);
+    const prefs = await get<{ callback_number: string; default_from_number: string; record_calls: number }>("SELECT callback_number, default_from_number, record_calls FROM user_settings WHERE user_id = ?", [userKey(c)]);
     return c.json(
       {
         provider: cfg.provider,
@@ -62,6 +63,7 @@ export function registerSettingsRoutes(app: OpenAPIHono<Env>) {
         user: u ? { id: u.id, name: u.name || u.email || "" } : null,
         callback_number: prefs?.callback_number || "",
         preferred_from_number: prefs?.default_from_number || "",
+        record_calls: prefs ? prefs.record_calls === 1 : true,
       },
       200,
     );
@@ -79,22 +81,25 @@ export function registerSettingsRoutes(app: OpenAPIHono<Env>) {
             schema: z.object({
               callback_number: z.string().max(40).optional().openapi({ description: "E.164; empty to clear" }),
               preferred_from_number: z.string().max(40).optional().openapi({ description: "E.164 of an owned number; empty for automatic" }),
+              record_calls: z.boolean().optional(),
             }),
           },
         },
       },
     },
     responses: {
-      200: { description: "Saved", content: { "application/json": { schema: z.object({ callback_number: z.string(), preferred_from_number: z.string() }) } } },
+      200: { description: "Saved", content: { "application/json": { schema: z.object({ callback_number: z.string(), preferred_from_number: z.string(), record_calls: z.boolean() }) } } },
       400: { description: "Invalid number", content: { "application/json": { schema: ErrorSchema } } },
     },
   });
   app.openapi(putSettings, async (c) => {
     const body = c.req.valid("json");
     const key = userKey(c);
-    const current = await get<{ callback_number: string; default_from_number: string }>("SELECT callback_number, default_from_number FROM user_settings WHERE user_id = ?", [key]);
+    const current = await get<{ callback_number: string; default_from_number: string; record_calls: number }>("SELECT callback_number, default_from_number, record_calls FROM user_settings WHERE user_id = ?", [key]);
     let callback = current?.callback_number || "";
     let preferred = current?.default_from_number || "";
+    let record = current ? current.record_calls === 1 : true;
+    if (body.record_calls !== undefined) record = body.record_calls;
     if (body.callback_number !== undefined) {
       if (body.callback_number.trim() === "") callback = "";
       else {
@@ -112,10 +117,10 @@ export function registerSettingsRoutes(app: OpenAPIHono<Env>) {
       }
     }
     await run(
-      `INSERT INTO user_settings (user_id, callback_number, default_from_number, updated_at) VALUES (?, ?, ?, datetime('now'))
-       ON CONFLICT(user_id) DO UPDATE SET callback_number = excluded.callback_number, default_from_number = excluded.default_from_number, updated_at = excluded.updated_at`,
-      [key, callback, preferred],
+      `INSERT INTO user_settings (user_id, callback_number, default_from_number, record_calls, updated_at) VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id) DO UPDATE SET callback_number = excluded.callback_number, default_from_number = excluded.default_from_number, record_calls = excluded.record_calls, updated_at = excluded.updated_at`,
+      [key, callback, preferred, record ? 1 : 0],
     );
-    return c.json({ callback_number: callback, preferred_from_number: preferred }, 200);
+    return c.json({ callback_number: callback, preferred_from_number: preferred, record_calls: record }, 200);
   });
 }

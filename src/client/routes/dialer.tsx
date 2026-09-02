@@ -82,10 +82,19 @@ export function Dialer({ settings }: { settings: Settings | null }) {
     if (settings?.preferred_from_number) setFrom(settings.preferred_from_number);
   }, [settings?.preferred_from_number]);
 
-  // Poll the call row once a second while it is live; stop when Twilio reports a final status.
+  // Poll the call row once a second while it is live. After the final status,
+  // keep polling (slower, bounded) until the recording link arrives: Twilio
+  // delivers it a few seconds after the call ends.
+  const ended = call ? TERMINAL.has(call.status) : false;
+  const awaitingRecording = Boolean(call && ended && call.record === 1 && !call.recording_url);
   useEffect(() => {
-    if (!call || TERMINAL.has(call.status)) return;
+    if (!call || (ended && !awaitingRecording)) return;
+    const startedAt = Date.now();
     const t = setInterval(async () => {
+      if (ended && Date.now() - startedAt > 120_000) {
+        clearInterval(t);
+        return;
+      }
       try {
         const { call: c } = await api.call(call.id);
         setCall(c);
@@ -94,9 +103,9 @@ export function Dialer({ settings }: { settings: Settings | null }) {
       } catch {
         /* keep polling */
       }
-    }, 1000);
+    }, ended ? 3000 : 1000);
     return () => clearInterval(t);
-  }, [call?.id, call?.status]);
+  }, [call?.id, call?.status, ended, awaitingRecording]);
 
   useEffect(() => {
     if (phase !== "live") return;
@@ -293,7 +302,11 @@ export function Dialer({ settings }: { settings: Settings | null }) {
               <Eyebrow>Timer</Eyebrow>
               <p className="data mt-1 text-2xl font-bold">{fmtDuration(elapsed)}</p>
               <p className="h-4 text-xs text-faint">
-                {call ? `from ${call.from_number} · ${call.mode === "api" ? "via your phone" : "browser"}` : "Recording is on by default. Tell the other party the call is recorded where required."}
+                {call
+                  ? `from ${call.from_number} · ${call.mode === "api" ? "via your phone" : "browser"}${call.record ? " · recording" : " · not recorded"}`
+                  : settings?.record_calls === false
+                    ? "Recording is off for your calls (Settings)."
+                    : "Recording is on. Tell the other party the call is recorded where required."}
               </p>
               {call?.error ? <p className="mt-1 text-xs text-danger">{call.error}</p> : null}
             </Zone>
@@ -313,7 +326,14 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                   onChange={(e) => setNotes(e.target.value)}
                 />
                 <div className="mt-3 flex items-center justify-between">
-                  {call.recording_url ? <audio controls preload="none" src={call.recording_url} className="h-8 w-56" /> : <span className="text-xs text-faint">Recording appears here when Twilio delivers it.</span>}
+                  {call.recording_url ? (
+                    <span className="flex items-center gap-2">
+                      <audio controls preload="metadata" src={call.recording_url} className="h-8 w-56" />
+                      <span className="data text-xs text-muted">{fmtDuration(call.recording_duration)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-faint">{call.record ? "Recording appears here when Twilio delivers it." : "Not recorded."}</span>
+                  )}
                   <Button variant="ghost" onClick={next} disabled={!savedOutcome}>
                     {campaignId ? "Next lead" : "Done"} <ArrowRight size={13} />
                   </Button>

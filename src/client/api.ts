@@ -30,7 +30,9 @@ export interface Call {
   started_at: string | null;
   ended_at: string | null;
   duration_seconds: number | null;
+  record: number;
   recording_url: string | null;
+  recording_duration: number | null;
   outcome: string | null;
   notes: string;
   error: string;
@@ -64,6 +66,7 @@ export interface Settings {
   user: { id: string; name: string } | null;
   callback_number: string;
   preferred_from_number: string;
+  record_calls: boolean;
 }
 
 export interface StartCallResponse {
@@ -97,8 +100,8 @@ const qs = (params: Record<string, string | number | undefined>) => {
 
 export const api = {
   settings: () => req<Settings>("/api/settings"),
-  saveSettings: (patch: { callback_number?: string; preferred_from_number?: string }) =>
-    req<{ callback_number: string; preferred_from_number: string }>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
+  saveSettings: (patch: { callback_number?: string; preferred_from_number?: string; record_calls?: boolean }) =>
+    req<{ callback_number: string; preferred_from_number: string; record_calls: boolean }>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
 
   leads: (p: { page?: number; limit?: number; search?: string; status?: string; country?: string } = {}) =>
     req<{ leads: Lead[]; total: number; page: number; limit: number }>(`/api/leads${qs(p)}`),

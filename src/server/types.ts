@@ -56,8 +56,10 @@ export interface CallRow {
   started_at: string | null;
   ended_at: string | null;
   duration_seconds: number | null;
+  record: number;
   recording_url: string | null;
   recording_sid: string | null;
+  recording_duration: number | null;
   outcome: string | null;
   notes: string;
   error: string;

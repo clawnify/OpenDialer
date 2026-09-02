@@ -13,6 +13,7 @@ function Flag({ ok, label }: { ok: boolean; label: string }) {
 export function SettingsPage({ settings, onSaved }: { settings: Settings | null; onSaved: () => void }) {
   const [callback, setCallback] = useState("");
   const [preferred, setPreferred] = useState("");
+  const [record, setRecord] = useState(true);
   const [numbers, setNumbers] = useState<OwnedNumber[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
@@ -21,6 +22,7 @@ export function SettingsPage({ settings, onSaved }: { settings: Settings | null;
     if (!settings) return;
     setCallback(settings.callback_number);
     setPreferred(settings.preferred_from_number);
+    setRecord(settings.record_calls);
   }, [settings]);
   useEffect(() => {
     api.numbers().then((r) => setNumbers(r.numbers.filter((n) => n.active))).catch(() => {});
@@ -30,7 +32,7 @@ export function SettingsPage({ settings, onSaved }: { settings: Settings | null;
     setBusy(true);
     setNotice(null);
     try {
-      await api.saveSettings({ callback_number: callback, preferred_from_number: preferred });
+      await api.saveSettings({ callback_number: callback, preferred_from_number: preferred, record_calls: record });
       setNotice({ tone: "success", text: "Saved" });
       onSaved();
     } catch (e) {
@@ -84,6 +86,13 @@ export function SettingsPage({ settings, onSaved }: { settings: Settings | null;
                   <option value="">Automatic (local presence)</option>
                   {numbers.map((n) => <option key={n.id} value={n.e164}>{n.e164} · {n.country}</option>)}
                 </select>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1" checked={record} onChange={(e) => setRecord(e.target.checked)} />
+                <span>
+                  Record my calls
+                  <span className="mt-0.5 block text-xs font-normal text-muted">Applies to calls you start from now on. Recording laws vary by country; get required consent.</span>
+                </span>
               </label>
               <label className="text-xs font-semibold text-muted">Your phone (fallback mode)
                 <input className={`${inputCls} mt-1`} placeholder="+15551234567" value={callback} onChange={(e) => setCallback(e.target.value)} />

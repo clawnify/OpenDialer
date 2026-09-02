@@ -53,10 +53,12 @@ export class VoiceClient {
     call.on("accept", () => ev.onAccept?.());
     call.on("disconnect", () => {
       this.call = null;
+      this.releaseMic();
       ev.onDisconnect?.();
     });
     call.on("cancel", () => {
       this.call = null;
+      this.releaseMic();
       ev.onDisconnect?.();
     });
     call.on("error", (e: { message?: string; code?: number }) => {
@@ -67,6 +69,16 @@ export class VoiceClient {
   hangup(): void {
     this.call?.disconnect();
     this.call = null;
+    this.releaseMic();
+  }
+
+  /**
+   * The SDK keeps the input stream open between calls, which leaves the
+   * browser's red recording indicator lit after hang-up. Releasing it here
+   * turns the indicator off; the next call re-acquires the default mic.
+   */
+  private releaseMic(): void {
+    this.device?.audio?.unsetInputDevice().catch(() => {});
   }
 
   get active(): boolean {

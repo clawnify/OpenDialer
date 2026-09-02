@@ -99,7 +99,8 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     );
     if (active) return c.json({ error: "You already have a call in progress. Hang up before starting another." }, 409);
 
-    const prefs = await get<{ callback_number: string; default_from_number: string }>("SELECT callback_number, default_from_number FROM user_settings WHERE user_id = ?", [rep]);
+    const prefs = await get<{ callback_number: string; default_from_number: string; record_calls: number }>("SELECT callback_number, default_from_number, record_calls FROM user_settings WHERE user_id = ?", [rep]);
+    const record = prefs ? prefs.record_calls === 1 : true;
     const owned = await query<NumberRow>("SELECT e164, country, area_code, active FROM numbers WHERE active = 1 LIMIT 500");
     const pick = pickFromNumber({
       requested: body.from_number || prefs?.default_from_number || null,
@@ -118,8 +119,8 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
 
     const id = crypto.randomUUID();
     await run(
-      "INSERT INTO calls (id, lead_id, user_id, from_number, to_number, mode, status) VALUES (?, ?, ?, ?, ?, ?, 'initiated')",
-      [id, lead.id, rep, pick.from, phone.e164, mode],
+      "INSERT INTO calls (id, lead_id, user_id, from_number, to_number, mode, status, record) VALUES (?, ?, ?, ?, ?, ?, 'initiated', ?)",
+      [id, lead.id, rep, pick.from, phone.e164, mode, record ? 1 : 0],
     );
     await run("UPDATE leads SET status = 'calling', updated_at = datetime('now') WHERE id = ?", [lead.id]);
 
@@ -137,7 +138,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
         to: prefs!.callback_number,
         from: pick.from,
         twiml: dialTwiml(
-          { to: phone.e164, callerId: pick.from, actionUrl: urls.dialAction, numberStatusUrl: urls.numberStatus, recordingUrl: urls.recording, record: true },
+          { to: phone.e164, callerId: pick.from, actionUrl: urls.dialAction, numberStatusUrl: urls.numberStatus, recordingUrl: urls.recording, record },
           sayTwiml(`Connecting you to ${name}.`),
         ),
         statusCallback: urls.parentStatus,
@@ -266,11 +267,16 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     const row = await get<CallRow>("SELECT recording_url FROM calls WHERE id = ?", [c.req.param("id")]);
     if (!row?.recording_url) return c.json({ error: "No recording for this call" }, 404);
     if (!providerConfig(c.env).rest) return c.json({ error: "Twilio is not configured" }, 400);
-    const upstream = await fetchRecording(c.env, row.recording_url);
-    if (!upstream.ok) return c.json({ error: `Twilio returned ${upstream.status} for the recording` }, 502);
-    return new Response(upstream.body, {
-      headers: { "content-type": upstream.headers.get("content-type") || "audio/mpeg", "cache-control": "private, max-age=3600" },
-    });
+    // Pass Range through and echo the length headers back, so the browser's
+    // player can read the duration and seek instead of showing 0:00.
+    const upstream = await fetchRecording(c.env, row.recording_url, c.req.header("range"));
+    if (!upstream.ok && upstream.status !== 206) return c.json({ error: `Twilio returned ${upstream.status} for the recording` }, 502);
+    const headers = new Headers({ "content-type": upstream.headers.get("content-type") || "audio/mpeg", "cache-control": "private, max-age=3600" });
+    for (const h of ["content-length", "content-range", "accept-ranges"]) {
+      const v = upstream.headers.get(h);
+      if (v) headers.set(h, v);
+    }
+    return new Response(upstream.body, { status: upstream.status, headers });
   });
 
   // Keep `user` referenced for identity typing in this module.
