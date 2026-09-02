@@ -24,5 +24,7 @@ export function pickFromNumber(opts: {
   }
   const same = active.find((n) => n.country === opts.leadCountry);
   if (same) return { from: same.e164, reason: "same-country" };
-  return { from: opts.fallback, reason: "default" };
+  // TWILIO_FROM_NUMBER is an optional pin; without it the first synced number
+  // is the default, so a fresh deploy dials as soon as numbers are synced.
+  return { from: opts.fallback || active[0]?.e164 || "", reason: "default" };
 }

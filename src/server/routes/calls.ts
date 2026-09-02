@@ -108,7 +108,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
       owned,
       fallback: cfg.fromNumber,
     });
-    if (!pick.from) return c.json({ error: "No caller ID available. Set TWILIO_FROM_NUMBER or sync your numbers." }, 400);
+    if (!pick.from) return c.json({ error: "No caller ID available. Sync your numbers on the Numbers page (or set TWILIO_FROM_NUMBER)." }, 400);
     if (body.from_number && pick.reason !== "requested") return c.json({ error: "That caller ID is not a number this account owns" }, 400);
 
     const mode: "browser" | "api" = cfg.voiceSdk ? "browser" : "api";

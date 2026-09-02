@@ -20,16 +20,16 @@ into `leads`. Only numbers the Twilio account owns can be caller IDs.
 
 ## Applying the deploy answers
 
-The deploy form asks for `company_name`, `primary_market` (US, Europe, Both)
-and `default_from_number`.
+The deploy form asks for `company_name` and `primary_market` (US, Europe, Both).
 
 - `company_name`: put it in the `<title>` in `index.html` and the sidebar brand
   label in `src/client/app.tsx`. Nothing else is branded.
 - `primary_market`: only affects `default_country` hints. For "Europe" pre-fill
   the CSV import's default country with the user's own country when they tell
   you it; do not narrow `SUPPORTED_COUNTRIES`.
-- `default_from_number`: this is `TWILIO_FROM_NUMBER`. Tell the user to set it
-  as an environment variable (E.164); do not hardcode it in source.
+- Caller IDs are not a deploy answer: after the user syncs their Twilio numbers
+  on `/numbers`, local presence picks one per lead and the first synced number
+  is the default. `TWILIO_FROM_NUMBER` is an optional pin.
 
 ## Procedure: get a list ready to call
 

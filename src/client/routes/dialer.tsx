@@ -263,7 +263,7 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                     onChange={(e) => setFrom(e.target.value)}
                     disabled={phase !== "idle"}
                   >
-                    <option value="">Automatic · local presence ({settings?.default_from_number || "no default"})</option>
+                    <option value="">Automatic · local presence{settings?.default_from_number ? ` (${settings.default_from_number})` : ""}</option>
                     {numbers.map((n) => <option key={n.id} value={n.e164}>{n.e164} · {n.country}{n.area_code ? ` ${n.area_code}` : ""}</option>)}
                   </select>
                 </label>

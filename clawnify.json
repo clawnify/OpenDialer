@@ -29,10 +29,10 @@
   "env": {
     "required": [
       "TWILIO_ACCOUNT_SID",
-      "TWILIO_AUTH_TOKEN",
-      "TWILIO_FROM_NUMBER"
+      "TWILIO_AUTH_TOKEN"
     ],
     "optional": [
+      "TWILIO_FROM_NUMBER",
       "TWILIO_TWIML_APP_SID",
       "TWILIO_API_KEY_SID",
       "TWILIO_API_KEY_SECRET",
@@ -58,12 +58,6 @@
           "Europe",
           "Both"
         ]
-      },
-      {
-        "key": "default_from_number",
-        "label": "Default caller ID (E.164)",
-        "placeholder": "+15551234567",
-        "type": "text"
       }
     ]
   },

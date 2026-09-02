@@ -61,8 +61,8 @@ export function SettingsPage({ settings, onSaved }: { settings: Settings | null;
           </Zone>
           <Zone>
             <Eyebrow>Default caller ID</Eyebrow>
-            <p className="data mt-1.5 text-sm">{settings.default_from_number || <span className="text-faint">TWILIO_FROM_NUMBER not set</span>}</p>
-            <p className="mt-1 text-xs text-muted">Used when no owned number matches the lead's country.</p>
+            <p className="data mt-1.5 text-sm">{settings.default_from_number || <span className="text-faint">Not pinned: the first synced number is used</span>}</p>
+            <p className="mt-1 text-xs text-muted">Used when no owned number matches the lead's country. Pin one with TWILIO_FROM_NUMBER.</p>
           </Zone>
           <Zone>
             <Eyebrow>Webhook URLs for the Twilio console</Eyebrow>

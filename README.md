@@ -38,7 +38,7 @@ The app needs a Twilio account with at least one voice-capable number. [SETUP.md
 ```
 TWILIO_ACCOUNT_SID      required
 TWILIO_AUTH_TOKEN       required
-TWILIO_FROM_NUMBER      required, E.164 default caller ID
+TWILIO_FROM_NUMBER      optional pin for the default caller ID; else the first synced number
 TWILIO_TWIML_APP_SID    browser calling
 TWILIO_API_KEY_SID      browser calling
 TWILIO_API_KEY_SECRET   browser calling

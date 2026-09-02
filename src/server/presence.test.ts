@@ -25,6 +25,10 @@ describe("pickFromNumber", () => {
     expect(pickFromNumber({ leadCountry: "US", leadAreaCode: "650", owned, fallback: "+442075550100" }))
       .toEqual({ from: "+12125550100", reason: "same-country" });
   });
+  it("falls back to the first synced number when no default is pinned", () => {
+    expect(pickFromNumber({ leadCountry: "DE", leadAreaCode: "", owned, fallback: "" })).toEqual({ from: "+12125550100", reason: "default" });
+    expect(pickFromNumber({ leadCountry: "DE", leadAreaCode: "", owned: [], fallback: "" }).from).toBe("");
+  });
   it("never uses an inactive number, and uses the default when nothing local exists", () => {
     expect(pickFromNumber({ leadCountry: "DE", leadAreaCode: "", owned, fallback: "+10000000000" }))
       .toEqual({ from: "+10000000000", reason: "default" });

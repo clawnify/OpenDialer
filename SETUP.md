@@ -20,9 +20,10 @@ Console home → **Account Info**.
   most EU countries require address and identity documents, which Twilio
   collects under **Regulatory Compliance** before the purchase completes)
 
-Put the US number in `TWILIO_FROM_NUMBER`, E.164 format (`+14155550100`).
-After buying more numbers later, open **/numbers** in the app and click
-**Sync from Twilio**.
+Open **/numbers** in the app and click **Sync from Twilio**: every voice
+number you own becomes a selectable caller ID, and the first one is the
+default when no number matches the lead's country. To pin a specific default,
+set `TWILIO_FROM_NUMBER` (E.164, `+14155550100`).
 
 ## 3. API key (for browser calling)
 
@@ -58,7 +59,7 @@ Set these in Clawnify under **Settings → Environment Variables** (or in
 ```
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
-TWILIO_FROM_NUMBER=+14155550100
+TWILIO_FROM_NUMBER=+14155550100   # optional
 TWILIO_TWIML_APP_SID=
 TWILIO_API_KEY_SID=
 TWILIO_API_KEY_SECRET=

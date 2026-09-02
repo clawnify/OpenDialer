@@ -15,7 +15,7 @@ export interface ProviderConfig {
 export function providerConfig(env: Bindings): ProviderConfig {
   const has = (v: string | undefined) => typeof v === "string" && v.trim().length > 0;
   const missing: string[] = [];
-  for (const k of ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER"] as const) if (!has(env[k])) missing.push(k);
+  for (const k of ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"] as const) if (!has(env[k])) missing.push(k);
   const rest = has(env.TWILIO_ACCOUNT_SID) && has(env.TWILIO_AUTH_TOKEN);
   const voiceSdk = rest && has(env.TWILIO_TWIML_APP_SID) && has(env.TWILIO_API_KEY_SID) && has(env.TWILIO_API_KEY_SECRET);
   return { provider: "twilio", rest, voiceSdk, fromNumber: (env.TWILIO_FROM_NUMBER || "").trim(), missing };

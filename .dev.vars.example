@@ -5,7 +5,9 @@
 # Required: REST calls, number sync and webhook signature checks.
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
-TWILIO_FROM_NUMBER=+15551234567
+
+# Optional: pin the default caller ID. Otherwise the first synced number is used.
+TWILIO_FROM_NUMBER=
 
 # Browser calling (Voice JS SDK). Without these three the app falls back to
 # ringing your own phone first, then bridging to the lead.
