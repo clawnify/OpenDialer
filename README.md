@@ -22,7 +22,7 @@ Built with **React + Tailwind** on a **Hono API** and a **SQLite** database. Pat
 - **Outcomes** after every call: Connected, Voicemail, No answer, Busy, Wrong number, Not interested, Callback, Do not call.
 - **Call history** per lead with duration and recording playback.
 - **Campaigns**: pick a list and work it one lead at a time. You click **Next**; nothing auto-dials.
-- **Recording on by default**, stored at Twilio; the app keeps only the link.
+- **Recording on by default**, with a per-rep switch in Settings. Audio stays at Twilio; the app keeps the link, the length, and streams it through its own player.
 - **Fallback mode** when browser calling is not configured: Twilio calls your phone first, then bridges you to the lead.
 
 Not in this version, on purpose: predictive or parallel dialing, AI voices, SMS or email sequences, billing, multi-tenant white-label, auto-dialing without a human click. A human is on the line for every conversation.
@@ -68,7 +68,7 @@ The two pairs are easy to swap and the symptom is the same either way, "The Twil
 
 Set `TWILIO_REGION=ie1` to keep call processing, recordings and the browser media path inside Twilio's Ireland region. A region is a whole credential set, not a switch:
 
-- The Account SID is the same, but the **Auth Token, API key and TwiML App are region-specific**. Create all three with the console's region selector set to Ireland (IE1), and put the IE1 values in the variables above.
+- The Account SID is the same, but the **Auth Token, API key and TwiML App are region-specific**. Create all three inside the Ireland region of the console: the pages live under `https://console.twilio.com/ie1/…` (API keys: `/ie1/account/keys-credentials/api-keys`, TwiML Apps: `/ie1/develop/voice/manage/twiml-apps`), and the page badge says "Ireland (IE1) Region". Put the IE1 values in the variables above.
 - The app then talks to `api.dublin.ie1.twilio.com`, signs Voice tokens for IE1, and connects the browser through the Dublin edge.
 - Each phone number's inbound processing region must be Ireland as well (Phone Numbers → the number → Voice region, or the Inbound Processing Region API); changes take up to five minutes.
 - One deployment runs in one region. To serve both markets with residency guarantees, deploy the app twice.

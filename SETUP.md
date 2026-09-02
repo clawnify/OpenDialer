@@ -85,7 +85,14 @@ trial can exercise is number sync on **/numbers**.
 
 ## 8. Ireland region (optional)
 
-For EU data residency set `TWILIO_REGION=ie1` and redo steps 1, 3 and 4 with the console's region selector on **Ireland (IE1)**: the IE1 Auth Token (Account → Keys & Credentials → Auth tokens, region IE1), an IE1 API key, and an IE1 TwiML App with the same voice URL. Then set each number's voice region to Ireland. Mixing a US1 key with `ie1` fails with "The Twilio token was rejected".
+For EU data residency set `TWILIO_REGION=ie1` and redo steps 1, 3 and 4 inside the Ireland region of the console. The region is part of the URL, and the page badge reads "Ireland (IE1) Region":
+
+- IE1 Auth Token and API key: `https://console.twilio.com/ie1/account/keys-credentials/api-keys` (the Auth Tokens section on that page is the IE1 token, distinct from the US1 one).
+- IE1 TwiML App: `https://console.twilio.com/ie1/develop/voice/manage/twiml-apps`, same voice URL as step 4.
+
+Then set each number's voice region to Ireland (Phone Numbers → the number → Voice configuration). Mixing a US1 key with `ie1`, or the US1 Auth Token with the IE1 API host, fails with "The Twilio token was rejected" or a 401 from Twilio.
+
+After changing any of these in Clawnify, redeploy: the values are injected at deploy time, and the first request or two after a deploy can still be answered by the previous version.
 
 ## 9. Check it
 
