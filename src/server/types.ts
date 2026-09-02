@@ -6,6 +6,8 @@ export type Bindings = {
   TWILIO_TWIML_APP_SID?: string;
   TWILIO_API_KEY_SID?: string;
   TWILIO_API_KEY_SECRET?: string;
+  /** Twilio home region: "us1" (default) or "ie1". Every Twilio credential must be created in this region. */
+  TWILIO_REGION?: string;
   /** Override the origin used in Twilio callback URLs. Defaults to the request origin. */
   PUBLIC_APP_URL?: string;
 };

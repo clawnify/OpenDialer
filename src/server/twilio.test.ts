@@ -28,6 +28,15 @@ describe("voiceAccessToken", () => {
   });
 });
 
+describe("voiceAccessToken region", () => {
+  it("adds the twr header only outside us1", async () => {
+    const env = { DB: {} as D1Database, TWILIO_ACCOUNT_SID: "ACxxx", TWILIO_API_KEY_SID: "SKxxx", TWILIO_API_KEY_SECRET: "s", TWILIO_TWIML_APP_SID: "APxxx" };
+    const dec = (t: string) => JSON.parse(Buffer.from(t.split(".")[0].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString());
+    expect(dec(await voiceAccessToken(env, "r")).twr).toBeUndefined();
+    expect(dec(await voiceAccessToken({ ...env, TWILIO_REGION: "ie1" }, "r")).twr).toBe("ie1");
+  });
+});
+
 describe("dialTwiml", () => {
   it("escapes attributes and wires callbacks", () => {
     const xml = dialTwiml({ to: "+442071234567", callerId: "+12125550100", actionUrl: "https://x/a?c=1&l=2", numberStatusUrl: "https://x/s", recordingUrl: "https://x/r", record: true });

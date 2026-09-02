@@ -83,7 +83,11 @@ The fallback mode bridges the same way and is blocked too.
 Upgrade the account (add a payment method) before testing. The only thing a
 trial can exercise is number sync on **/numbers**.
 
-## 8. Check it
+## 8. Ireland region (optional)
+
+For EU data residency set `TWILIO_REGION=ie1` and redo steps 1, 3 and 4 with the console's region selector on **Ireland (IE1)**: the IE1 Auth Token (Account → Keys & Credentials → Auth tokens, region IE1), an IE1 API key, and an IE1 TwiML App with the same voice URL. Then set each number's voice region to Ireland. Mixing a US1 key with `ie1` fails with "The Twilio token was rejected".
+
+## 9. Check it
 
 1. Open **/settings**: both badges should be green.
 2. Open **/numbers** → **Sync from Twilio**: your numbers appear.

@@ -3,6 +3,7 @@
 // app makes are small. Everything here runs server-side; the browser only
 // ever sees a short-lived Voice access token.
 
+import { TWILIO_REGIONS, twilioRegion } from "./config.js";
 import type { Bindings } from "./types.js";
 
 export class TwilioError extends Error {
@@ -12,7 +13,10 @@ export class TwilioError extends Error {
   }
 }
 
-const API = "https://api.twilio.com/2010-04-01";
+/** REST root for the configured region, e.g. https://api.dublin.ie1.twilio.com/2010-04-01. */
+function apiRoot(env: Bindings): string {
+  return `https://${TWILIO_REGIONS[twilioRegion(env)].restHost}/2010-04-01`;
+}
 
 function basicAuth(env: Bindings): string {
   // API key + secret is preferred (rotatable); auth token works too.
@@ -23,7 +27,7 @@ function basicAuth(env: Bindings): string {
 
 /** Twilio error bodies are { code, message, more_info }; turn them into one readable line. */
 async function twilioFetch<T>(env: Bindings, path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API}/Accounts/${env.TWILIO_ACCOUNT_SID}${path}`, {
+  const res = await fetch(`${apiRoot(env)}/Accounts/${env.TWILIO_ACCOUNT_SID}${path}`, {
     ...init,
     headers: { Authorization: basicAuth(env), ...(init.headers || {}) },
   });
@@ -43,7 +47,7 @@ async function twilioFetch<T>(env: Bindings, path: string, init: RequestInit = {
 }
 
 function friendlyTwilioMessage(status: number, code: number | undefined, msg: string): string {
-  if (status === 401) return "Twilio rejected the credentials. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.";
+  if (status === 401) return "Twilio rejected the credentials. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, and that they were created in the configured TWILIO_REGION.";
   if (code === 21211 || code === 21217) return "Twilio rejected this number as invalid.";
   if (code === 21219 || code === 32100) return "Trial account: Twilio blocks bridged calls until the account is upgraded.";
   if (code === 21215 || code === 21216) return "Calling this destination is disabled on your Twilio account (geographic permissions).";
@@ -138,7 +142,10 @@ export const VOICE_TOKEN_TTL_SECONDS = 3600;
 export async function voiceAccessToken(env: Bindings, identity: string): Promise<string> {
   const keySid = env.TWILIO_API_KEY_SID!;
   const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "HS256", typ: "JWT", cty: "twilio-fpa;v=1" };
+  // Regional tokens carry the home region in the header (`twr`); the API key
+  // and TwiML App named inside must exist in that same region.
+  const region = twilioRegion(env);
+  const header: Record<string, string> = { alg: "HS256", typ: "JWT", cty: "twilio-fpa;v=1", ...(region === "us1" ? {} : { twr: region }) };
   const payload = {
     jti: `${keySid}-${now}`,
     iss: keySid,

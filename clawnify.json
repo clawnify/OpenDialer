@@ -36,7 +36,8 @@
       "TWILIO_TWIML_APP_SID",
       "TWILIO_API_KEY_SID",
       "TWILIO_API_KEY_SECRET",
-      "PUBLIC_APP_URL"
+      "PUBLIC_APP_URL",
+      "TWILIO_REGION"
     ]
   },
   "deploy": {

@@ -15,6 +15,10 @@ TWILIO_TWIML_APP_SID=
 TWILIO_API_KEY_SID=
 TWILIO_API_KEY_SECRET=
 
+# Optional. Twilio home region: us1 (default) or ie1 (Ireland, EU data residency).
+# Every Twilio credential above must be created in this region.
+TWILIO_REGION=us1
+
 # Optional. The app uses the request origin for Twilio callback URLs; set this
 # only when the public URL differs (a tunnel during local development).
 PUBLIC_APP_URL=

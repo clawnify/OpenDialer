@@ -49,7 +49,7 @@ export function SettingsPage({ settings, onSaved }: { settings: Settings | null;
       <div className="grid gap-6 p-6 lg:grid-cols-2">
         <Card>
           <Zone>
-            <Eyebrow right={<Chip>{settings.provider}</Chip>}>Provider</Eyebrow>
+            <Eyebrow right={<span className="flex gap-1"><Chip>{settings.provider}</Chip><Chip>{settings.region}</Chip></span>}>Provider</Eyebrow>
             <div className="mt-3 flex flex-wrap gap-2">
               <Flag ok={settings.configured} label="REST credentials" />
               <Flag ok={settings.voice_sdk_enabled} label="Browser calling (Voice SDK)" />

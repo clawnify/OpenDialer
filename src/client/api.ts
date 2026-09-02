@@ -57,6 +57,8 @@ export interface Campaign {
 
 export interface Settings {
   provider: "twilio";
+  region: string;
+  edge: string | null;
   configured: boolean;
   voice_sdk_enabled: boolean;
   missing: string[];

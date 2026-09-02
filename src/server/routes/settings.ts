@@ -8,6 +8,8 @@ import type { Env } from "../types.js";
 const SettingsSchema = z
   .object({
     provider: z.literal("twilio"),
+    region: z.string().openapi({ description: "Twilio home region: us1 or ie1" }),
+    edge: z.string().nullable().openapi({ description: "Voice SDK edge for the region; null = SDK default" }),
     configured: z.boolean().openapi({ description: "Account SID, auth token and default number all present" }),
     voice_sdk_enabled: z.boolean().openapi({ description: "Browser calling available; otherwise calls fall back to ringing the rep's phone" }),
     missing: z.array(z.string()).openapi({ description: "Required env vars that are not set" }),
@@ -54,6 +56,8 @@ export function registerSettingsRoutes(app: OpenAPIHono<Env>) {
     return c.json(
       {
         provider: cfg.provider,
+        region: cfg.region,
+        edge: cfg.edge,
         configured: cfg.rest && cfg.missing.length === 0,
         voice_sdk_enabled: cfg.voiceSdk,
         missing: cfg.missing,

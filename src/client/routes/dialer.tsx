@@ -143,7 +143,7 @@ export function Dialer({ settings }: { settings: Settings | null }) {
             setError(m);
             setPhase("ended");
           },
-        });
+        }, settings?.edge ?? null);
       } else {
         setPhase("live");
       }

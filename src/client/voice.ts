@@ -22,7 +22,7 @@ export class VoiceClient {
     return Device.isSupported;
   }
 
-  ensure(token: string): Device {
+  ensure(token: string, edge: string | null): Device {
     if (this.device) {
       this.device.updateToken(token);
       return this.device;
@@ -30,6 +30,9 @@ export class VoiceClient {
     this.device = new Device(token, {
       codecPreferences: [Call.Codec.Opus, Call.Codec.PCMU],
       logLevel: "error",
+      // A regional deployment (ie1) must enter through its own edge (dublin);
+      // us1 leaves the SDK on its default edge.
+      ...(edge ? { edge } : {}),
     });
     this.device.on("error", (e: { message?: string; code?: number }) => {
       this.lastDeviceError = e;
@@ -37,8 +40,8 @@ export class VoiceClient {
     return this.device;
   }
 
-  async connect(token: string, params: Record<string, string>, ev: VoiceEvents): Promise<void> {
-    const device = this.ensure(token);
+  async connect(token: string, params: Record<string, string>, ev: VoiceEvents, edge: string | null = null): Promise<void> {
+    const device = this.ensure(token, edge);
     this.lastDeviceError = null;
     let call: Call;
     try {

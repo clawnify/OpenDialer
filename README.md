@@ -59,9 +59,19 @@ Twilio is the only provider today. Every value in `.dev.vars.example` maps to on
 | `TWILIO_API_KEY_SID` | Account → Keys & Credentials → API keys & tokens → **Create API key** (type Standard) | Starts with `SK`. Not the Account SID |
 | `TWILIO_API_KEY_SECRET` | Same dialog, shown once | Copy it before closing |
 | `TWILIO_TWIML_APP_SID` | Voice → Manage → **TwiML apps** → your app | Starts with `AP`. Its voice URL must be `https://<your app host>/api/twilio/voice` |
+| `TWILIO_REGION` | Console region selector (top right on credential pages) | `us1` (default) or `ie1`. See Ireland region below |
 | `PUBLIC_APP_URL` | not from Twilio | Only for a tunnel during local development |
 
 The two pairs are easy to swap and the symptom is the same either way, "The Twilio token was rejected": the **Account SID + Auth Token** identify the account and sign webhooks; the **API key SID + secret** sign the browser's Voice token. On Clawnify the first pair goes under Settings → API Keys → Twilio as `ACCOUNT_SID:AUTH_TOKEN`, the other four under Settings → Environment Variables. Step-by-step clicks, including the account upgrade and business-profile approval Twilio requires before Voice works: [SETUP.md](SETUP.md).
+
+### Ireland region (EU data residency)
+
+Set `TWILIO_REGION=ie1` to keep call processing, recordings and the browser media path inside Twilio's Ireland region. A region is a whole credential set, not a switch:
+
+- The Account SID is the same, but the **Auth Token, API key and TwiML App are region-specific**. Create all three with the console's region selector set to Ireland (IE1), and put the IE1 values in the variables above.
+- The app then talks to `api.dublin.ie1.twilio.com`, signs Voice tokens for IE1, and connects the browser through the Dublin edge.
+- Each phone number's inbound processing region must be Ireland as well (Phone Numbers → the number → Voice region, or the Inbound Processing Region API); changes take up to five minutes.
+- One deployment runs in one region. To serve both markets with residency guarantees, deploy the app twice.
 
 ## Pages
 
