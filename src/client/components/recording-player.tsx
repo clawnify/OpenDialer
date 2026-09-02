@@ -89,14 +89,16 @@ export function RecordingPlayer({ src, duration, className = "" }: { src: string
         aria-valuemax={total ?? 0}
         aria-valuenow={Math.round(time)}
         onClick={seek}
-        className="relative h-4 w-28 cursor-pointer"
+        className="relative h-4 w-28 shrink-0 cursor-pointer"
       >
         <div className="absolute top-1/2 h-0.5 w-full -translate-y-1/2 rounded-full bg-border" />
         <div className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-foreground" style={{ width: `${pct}%` }} />
         <div className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full border border-border bg-surface" style={{ left: `${pct}%` }} />
       </div>
-      <span className="data whitespace-nowrap text-xs text-muted">
-        {fmtDuration(Math.round(time))} / {fmtDuration(total)}
+      {/* Fixed width: the label grows from "0:00 / –" to "0:05 / 0:36" once
+          metadata loads, and a flexible label would shove the track sideways. */}
+      <span className="data w-[5.75rem] shrink-0 whitespace-nowrap text-right text-xs text-muted">
+        {fmtDuration(Math.round(time))} / {total == null ? "–:––" : fmtDuration(total)}
       </span>
     </div>
   );
