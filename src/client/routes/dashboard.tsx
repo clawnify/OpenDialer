@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Phone, Upload } from "lucide-react";
 import { Toolbar } from "../app";
 import { api, fmtDate, fmtDuration, leadName, type Call, type Lead, type Settings } from "../api";
-import { Button, Card, Empty, Eyebrow, Zone } from "../components/ui";
+import { Button, Card, Empty, CardTitle, Zone } from "../components/ui";
 import { CallStatusBadge, OutcomeChip } from "../components/status";
 
 export function Dashboard({ settings }: { settings: Settings | null }) {
@@ -60,15 +60,15 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
     <>
       <Toolbar title="Dashboard">
         <Button variant="primary" onClick={startCalling} disabled={starting || !settings?.configured}>
-          <Phone size={13} /> Start calling
+          <Phone size={16} /> Start calling
         </Button>
       </Toolbar>
       <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        {error ? <p className="lg:col-span-2 text-sm text-danger">{error}</p> : null}
+        {error ? <p className="lg:col-span-2 text-sm text-destructive">{error}</p> : null}
         <div className="space-y-6">
           <Card>
             <Zone>
-              <Eyebrow right={todo ? `${todo.total} new` : undefined}>Leads to call</Eyebrow>
+              <CardTitle right={todo ? `${todo.total} new` : undefined}>Leads to call</CardTitle>
               {!todo ? null : todo.leads.length === 0 ? (
                 <Empty title="No new leads" hint="Import a CSV or add a lead to get started." />
               ) : (
@@ -76,7 +76,7 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
                   {todo.leads.map((l) => (
                     <li key={l.id} className="flex items-center justify-between py-2 text-sm">
                       <Link to={`/leads/${l.id}`} className="truncate hover:underline">{leadName(l)}</Link>
-                      <span className="data ml-3 shrink-0 text-xs text-muted">{l.company || l.phone}</span>
+                      <span className="data ml-3 shrink-0 text-xs text-muted-foreground">{l.company || l.phone}</span>
                     </li>
                   ))}
                 </ul>
@@ -84,54 +84,54 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
             </Zone>
             {callbacks.length ? (
               <Zone>
-                <Eyebrow right={`${callbacks.length}`}>Callbacks due</Eyebrow>
+                <CardTitle right={`${callbacks.length}`}>Callbacks due</CardTitle>
                 <ul className="mt-2 divide-y divide-border">
                   {callbacks.map((l) => (
                     <li key={l.id} className="flex items-center justify-between py-2 text-sm">
                       <Link to={`/dialer?lead=${l.id}`} className="truncate hover:underline">{leadName(l)}</Link>
-                      <span className="text-xs text-muted">{fmtDate(l.last_called_at)}</span>
+                      <span className="text-xs text-muted-foreground">{fmtDate(l.last_called_at)}</span>
                     </li>
                   ))}
                 </ul>
               </Zone>
             ) : null}
             <Zone className="flex items-center justify-between">
-              <span className="text-xs text-muted">Bring your list</span>
+              <span className="text-xs text-muted-foreground">Bring your list</span>
               <Link to="/leads" className="inline-flex items-center gap-1.5 text-sm underline decoration-border underline-offset-2 hover:decoration-foreground">
-                <Upload size={13} /> Import CSV
+                <Upload size={16} /> Import CSV
               </Link>
             </Zone>
           </Card>
         </div>
 
         <div>
-          <span className="eyebrow">Last 20 calls</span>
+          <CardTitle>Last 20 calls</CardTitle>
           {recent.length === 0 ? (
             <Empty title="No calls yet" hint="Your call log will appear here." />
           ) : (
             <div className="-mx-6 mt-2 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-y border-border bg-sunken text-left text-xs font-semibold tracking-wide text-muted">
-                    <th className="px-3 py-2.5 first:pl-6">Lead</th>
-                    <th className="px-3 py-2.5">Status</th>
-                    <th className="px-3 py-2.5">Outcome</th>
-                    <th className="data px-3 py-2.5 text-right">Duration</th>
-                    <th className="px-3 py-2.5 text-right last:pr-6">When</th>
+                  <tr className="border-b border-border">
+                    <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground first:pl-6">Lead</th>
+                    <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground">Status</th>
+                    <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground">Outcome</th>
+                    <th className="data h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground text-right">Duration</th>
+                    <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground text-right last:pr-6">When</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recent.map((c) => {
                     const l = leadsById[c.lead_id];
                     return (
-                      <tr key={c.id} className="border-b border-border hover:bg-sunken">
+                      <tr key={c.id} className="h-11 border-b border-border hover:bg-muted">
                         <td className="px-3 py-2 first:pl-6">
                           {l ? <Link to={`/leads/${l.id}`} className="hover:underline">{leadName(l)}</Link> : <span className="text-faint">{c.to_number}</span>}
                         </td>
                         <td className="px-3 py-2"><CallStatusBadge status={c.status} /></td>
                         <td className="px-3 py-2"><OutcomeChip outcome={c.outcome} /></td>
                         <td className="data px-3 py-2 text-right">{fmtDuration(c.duration_seconds)}</td>
-                        <td className="data px-3 py-2 text-right text-muted last:pr-6">{fmtDate(c.created_at)}</td>
+                        <td className="data px-3 py-2 text-right text-muted-foreground last:pr-6">{fmtDate(c.created_at)}</td>
                       </tr>
                     );
                   })}

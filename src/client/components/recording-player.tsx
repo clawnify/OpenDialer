@@ -70,7 +70,7 @@ export function RecordingPlayer({ src, duration, className = "" }: { src: string
 
   const pct = total ? Math.min(100, (time / total) * 100) : 0;
 
-  if (error) return <span className="text-xs text-danger">Recording unavailable</span>;
+  if (error) return <span className="text-xs text-destructive">Recording unavailable</span>;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -78,7 +78,7 @@ export function RecordingPlayer({ src, duration, className = "" }: { src: string
         type="button"
         onClick={toggle}
         aria-label={playing ? "Pause recording" : "Play recording"}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-foreground hover:bg-sunken"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-card text-foreground shadow-raised hover:bg-muted"
       >
         {loading ? <Loader2 size={12} className="animate-spin" /> : playing ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
       </button>
@@ -93,11 +93,11 @@ export function RecordingPlayer({ src, duration, className = "" }: { src: string
       >
         <div className="absolute top-1/2 h-0.5 w-full -translate-y-1/2 rounded-full bg-border" />
         <div className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-foreground" style={{ width: `${pct}%` }} />
-        <div className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full border border-border bg-surface" style={{ left: `${pct}%` }} />
+        <div className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full border border-border bg-card" style={{ left: `${pct}%` }} />
       </div>
       {/* Fixed width: the label grows from "0:00 / –" to "0:05 / 0:36" once
           metadata loads, and a flexible label would shove the track sideways. */}
-      <span className="data w-[5.75rem] shrink-0 whitespace-nowrap text-right text-xs text-muted">
+      <span className="data w-[5.75rem] shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground">
         {fmtDuration(Math.round(time))} / {total == null ? "–:––" : fmtDuration(total)}
       </span>
     </div>

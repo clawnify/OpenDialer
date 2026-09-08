@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Toolbar } from "../app";
 import { api, type OwnedNumber } from "../api";
-import { Badge, Button, Chip, Empty } from "../components/ui";
+import { Badge, Button, CardTitle, Chip, Empty } from "../components/ui";
 
 export function NumbersPage() {
   const [numbers, setNumbers] = useState<OwnedNumber[]>([]);
@@ -37,31 +37,31 @@ export function NumbersPage() {
   return (
     <>
       <Toolbar title="Numbers">
-        <Button variant="primary" onClick={sync} disabled={busy}><RefreshCw size={13} className={busy ? "animate-spin" : ""} /> Sync from Twilio</Button>
+        <Button variant="primary" onClick={sync} disabled={busy}><RefreshCw size={16} className={busy ? "animate-spin" : ""} /> Sync from Twilio</Button>
       </Toolbar>
       <div className="p-6">
-        {notice ? <p className={`mb-4 text-sm ${notice.tone === "danger" ? "text-danger" : "text-success"}`}>{notice.text}</p> : null}
-        <span className="eyebrow">Caller IDs · {numbers.filter((n) => n.active).length}</span>
-        <p className="mt-1 mb-3 text-xs text-muted">Only numbers owned by the connected Twilio account can be shown to a lead. Buy numbers in the Twilio console, then sync.</p>
+        {notice ? <p className={`mb-4 text-sm ${notice.tone === "danger" ? "text-destructive" : "text-success"}`}>{notice.text}</p> : null}
+        <CardTitle right={numbers.filter((n) => n.active).length}>Caller IDs</CardTitle>
+        <p className="mt-1 mb-3 text-xs text-muted-foreground">Only numbers owned by the connected Twilio account can be shown to a lead. Buy numbers in the Twilio console, then sync.</p>
         {numbers.length === 0 ? (
           <Empty title="No numbers synced" hint="Click Sync from Twilio to pull the account's voice-capable numbers." />
         ) : (
           <div className="-mx-6 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-y border-border bg-sunken text-left text-xs font-semibold tracking-wide text-muted">
-                  <th className="px-3 py-2.5 first:pl-6">Number</th>
-                  <th className="px-3 py-2.5">Country</th>
-                  <th className="px-3 py-2.5">Area code</th>
-                  <th className="px-3 py-2.5 text-right last:pr-6">Status</th>
+                <tr className="border-b border-border">
+                  <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground first:pl-6">Number</th>
+                  <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground">Country</th>
+                  <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground">Area code</th>
+                  <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground text-right last:pr-6">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {numbers.map((n) => (
-                  <tr key={n.id} className="border-b border-border hover:bg-sunken">
+                  <tr key={n.id} className="h-11 border-b border-border hover:bg-muted">
                     <td className="data px-3 py-2 first:pl-6">{n.e164}</td>
                     <td className="px-3 py-2"><Chip>{n.country || "?"}</Chip></td>
-                    <td className="data px-3 py-2 text-muted">{n.area_code || "–"}</td>
+                    <td className="data px-3 py-2 text-muted-foreground">{n.area_code || "–"}</td>
                     <td className="px-3 py-2 text-right last:pr-6">{n.active ? <Badge tone="success">Active</Badge> : <Badge tone="neutral">Released</Badge>}</td>
                   </tr>
                 ))}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { TriangleAlert } from "lucide-react";
+import { PanelLeft, TriangleAlert } from "lucide-react";
 import { AppNav, reportLocation, type AppNavItem } from "@clawnify/app/client";
 import { api, type Settings } from "./api";
 import { Dashboard } from "./routes/dashboard";
@@ -32,6 +32,9 @@ export function App() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   // Leads still to call — shown as the badge on "Leads".
   const [newLeads, setNewLeads] = useState<number | undefined>();
+  // Collapse folds the SDK sidebar to icons. The toggle lives here, not in
+  // <AppNav>, because the SDK has no slot for it; the proper home is the SDK.
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -69,16 +72,28 @@ export function App() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <AppNav
-        title="OpenDialer"
-        icon="phone"
-        groups={groups}
-        active={activeNavId(location.pathname)}
-        onNavigate={(item) => navigate(item.href!)}
-      />
+    <div className="flex h-full" data-nav-collapsed={navCollapsed || undefined}>
+      {/* flex, so the SDK aside stretches to the row height like a direct child */}
+      <div className="relative flex shrink-0">
+        <button
+          type="button"
+          onClick={() => setNavCollapsed((v) => !v)}
+          aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="absolute right-2 top-3.5 z-10 inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
+        >
+          <PanelLeft size={16} />
+        </button>
+        <AppNav
+          title="OpenDialer"
+          icon="phone"
+          groups={groups}
+          active={activeNavId(location.pathname)}
+          onNavigate={(item) => navigate(item.href!)}
+        />
+      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {settingsError ? (
           <ConfigBanner title="Could not load settings" detail={settingsError} />
         ) : settings && !settings.configured ? (
@@ -88,7 +103,7 @@ export function App() {
           />
         ) : null}
 
-        <main className="flex-1">
+        <main className="min-h-0 flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Dashboard settings={settings} />} />
             <Route path="/leads" element={<LeadsPage />} />
@@ -117,8 +132,8 @@ function ConfigBanner({ title, detail }: { title: string; detail: string }) {
 /** Shared page chrome: sticky toolbar with the title left and actions right. */
 export function Toolbar({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-border bg-surface px-6">
-      <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+    <div className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-border bg-card px-6">
+      <h1 className="truncate text-[1.375rem] font-semibold tracking-[-0.01em]">{title}</h1>
       <div className="flex items-center gap-2">{children}</div>
     </div>
   );

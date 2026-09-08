@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Mic, Phone, PhoneOff, TriangleAlert } from "lucide-react";
 import { Toolbar } from "../app";
 import { api, fmtDate, fmtDuration, leadName, OUTCOME_LABELS, type Call, type Campaign, type Lead, type OwnedNumber, type Settings } from "../api";
-import { Button, Card, Chip, Empty, Eyebrow, Zone } from "../components/ui";
+import { Button, Card, Chip, Empty, CardTitle, Zone } from "../components/ui";
 import { CallStatusBadge, OutcomeChip } from "../components/status";
 import { VoiceClient } from "../voice";
 import { RecordingPlayer } from "../components/recording-player";
@@ -214,7 +214,7 @@ export function Dialer({ settings }: { settings: Settings | null }) {
   return (
     <>
       <Toolbar title={campaign ? campaign.name : "Dialer"}>
-        {campaign ? <span className="data text-xs text-muted">{campaign.completed} of {campaign.total} done</span> : null}
+        {campaign ? <span className="data text-xs text-muted-foreground">{campaign.completed} of {campaign.total} done</span> : null}
       </Toolbar>
 
       <div className="border-b border-warning/25 bg-warning-tint px-6 py-2.5 text-xs text-warning">
@@ -229,24 +229,24 @@ export function Dialer({ settings }: { settings: Settings | null }) {
         </div>
       ) : !lead ? (
         <div className="p-6">
-          {error ? <p className="text-sm text-danger">{error}</p> : <Empty title="Pick a lead to call" hint="Open a lead and press Call, or start a campaign from the Leads page." />}
+          {error ? <p className="text-sm text-destructive">{error}</p> : <Empty title="Pick a lead to call" hint="Open a lead and press Call, or start a campaign from the Leads page." />}
         </div>
       ) : (
         <div className="grid gap-6 p-6 lg:grid-cols-2">
           <Card>
             <Zone>
-              <Eyebrow right={<Chip>{lead.country}</Chip>}>Current lead</Eyebrow>
-              <p className="mt-2 text-xl font-bold tracking-tight">{leadName(lead)}</p>
-              <p className="text-sm text-muted">{lead.company || "No company"}</p>
+              <CardTitle right={<Chip>{lead.country}</Chip>}>Current lead</CardTitle>
+              <p className="mt-2 text-[1.0625rem] font-semibold">{leadName(lead)}</p>
+              <p className="text-sm text-muted-foreground">{lead.company || "No company"}</p>
               <p className="data mt-2 text-sm">{lead.phone}</p>
               {lead.timezone ? <p className="text-xs text-faint">{lead.timezone}</p> : null}
             </Zone>
             <Zone>
-              <Eyebrow>Notes</Eyebrow>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted">{lead.notes || "No notes."}</p>
+              <CardTitle>Notes</CardTitle>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground">{lead.notes || "No notes."}</p>
             </Zone>
             <Zone>
-              <Eyebrow right={`${history.length}`}>Previous attempts</Eyebrow>
+              <CardTitle right={`${history.length}`}>Previous attempts</CardTitle>
               {history.length === 0 ? (
                 <p className="mt-1.5 text-sm text-faint">First attempt.</p>
               ) : (
@@ -254,7 +254,7 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                   {history.slice(0, 5).map((h) => (
                     <li key={h.id} className="flex items-center justify-between py-1.5">
                       <span className="flex items-center gap-2"><CallStatusBadge status={h.status} /><OutcomeChip outcome={h.outcome} /></span>
-                      <span className="data text-xs text-muted">{fmtDate(h.created_at)} · {fmtDuration(h.duration_seconds)}</span>
+                      <span className="data text-xs text-muted-foreground">{fmtDate(h.created_at)} · {fmtDuration(h.duration_seconds)}</span>
                     </li>
                   ))}
                 </ul>
@@ -264,11 +264,11 @@ export function Dialer({ settings }: { settings: Settings | null }) {
 
           <Card>
             <Zone>
-              <Eyebrow right={call ? <CallStatusBadge status={call.status} /> : undefined}>Call</Eyebrow>
+              <CardTitle right={call ? <CallStatusBadge status={call.status} /> : undefined}>Call</CardTitle>
               <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                <label className="text-xs font-semibold text-muted">Caller ID
+                <label className="text-[0.8125rem] font-medium text-muted-foreground">Caller ID
                   <select
-                    className="mt-1 h-9 w-full rounded-sm border border-border bg-surface px-2.5 text-[0.8125rem] focus:border-ring focus:outline-none"
+                    className="input mt-1 text-sm"
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
                     disabled={phase !== "idle"}
@@ -279,29 +279,29 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                 </label>
                 {phase === "idle" || phase === "starting" ? (
                   <Button variant="primary" onClick={startCall} disabled={!canCall}>
-                    <Phone size={13} /> {phase === "starting" ? "Connecting…" : "Call"}
+                    <Phone size={16} /> {phase === "starting" ? "Connecting…" : "Call"}
                   </Button>
                 ) : phase === "live" ? (
-                  <Button variant="primary" onClick={hangUp}><PhoneOff size={13} /> Hang up</Button>
+                  <Button variant="primary" onClick={hangUp}><PhoneOff size={16} /> Hang up</Button>
                 ) : (
                   <Button onClick={() => { setCall(null); setPhase("idle"); setSavedOutcome(null); liveSince.current = null; }} disabled={!savedOutcome && Boolean(call)} title={!savedOutcome && call ? "Save an outcome first" : undefined}>
-                    <Phone size={13} /> Call again
+                    <Phone size={16} /> Call again
                   </Button>
                 )}
               </div>
               {!browserMode && configured ? (
-                <p className="mt-2 text-xs text-muted">Browser calling is not set up. <strong>Calling your phone first, then the lead.</strong> Set your number in Settings.</p>
+                <p className="mt-2 text-xs text-muted-foreground">Browser calling is not set up. <strong>Calling your phone first, then the lead.</strong> Set your number in Settings.</p>
               ) : null}
               {browserMode ? (
-                <p className="mt-2 flex items-center gap-1 text-xs text-muted"><Mic size={11} /> Your browser will ask for microphone access on the first call.</p>
+                <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground"><Mic size={11} /> Your browser will ask for microphone access on the first call.</p>
               ) : null}
-              {!configured ? <p className="mt-2 text-xs text-danger">Twilio is not configured; see Settings.</p> : null}
-              {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
+              {!configured ? <p className="mt-2 text-xs text-destructive">Twilio is not configured; see Settings.</p> : null}
+              {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
             </Zone>
 
             <Zone>
-              <Eyebrow>Timer</Eyebrow>
-              <p className="data mt-1 text-2xl font-bold">{fmtDuration(elapsed)}</p>
+              <CardTitle>Timer</CardTitle>
+              <p className="stat mt-1">{fmtDuration(elapsed)}</p>
               <p className="h-4 text-xs text-faint">
                 {call
                   ? `from ${call.from_number} · ${call.mode === "api" ? "via your phone" : "browser"}${call.record ? " · recording" : " · not recorded"}`
@@ -309,19 +309,19 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                     ? "Recording is off for your calls (Settings)."
                     : "Recording is on. Tell the other party the call is recorded where required."}
               </p>
-              {call?.error ? <p className="mt-1 text-xs text-danger">{call.error}</p> : null}
+              {call?.error ? <p className="mt-1 text-xs text-destructive">{call.error}</p> : null}
             </Zone>
 
             {phase === "ended" && call ? (
               <Zone>
-                <Eyebrow right={savedOutcome ? <OutcomeChip outcome={savedOutcome} /> : undefined}>Outcome</Eyebrow>
+                <CardTitle right={savedOutcome ? <OutcomeChip outcome={savedOutcome} /> : undefined}>Outcome</CardTitle>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {OUTCOME_ORDER.map((o) => (
                     <Button key={o} onClick={() => saveOutcome(o)} disabled={saving} variant={savedOutcome === o ? "primary" : "secondary"}>{OUTCOME_LABELS[o]}</Button>
                   ))}
                 </div>
                 <textarea
-                  className="mt-3 h-20 w-full rounded-sm border border-border bg-surface px-2.5 py-2 text-[0.8125rem] placeholder:text-faint focus:border-ring focus:outline-none"
+                  className="input mt-3 h-20 py-2 text-sm"
                   placeholder="Notes for this attempt (saved with the outcome)"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -333,7 +333,7 @@ export function Dialer({ settings }: { settings: Settings | null }) {
                     <span className="text-xs text-faint">{call.record ? "Recording appears here when Twilio delivers it." : "Not recorded."}</span>
                   )}
                   <Button variant="ghost" onClick={next} disabled={!savedOutcome}>
-                    {campaignId ? "Next lead" : "Done"} <ArrowRight size={13} />
+                    {campaignId ? "Next lead" : "Done"} <ArrowRight size={16} />
                   </Button>
                 </div>
               </Zone>
