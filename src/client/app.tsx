@@ -72,7 +72,7 @@ export function App() {
   ];
 
   return (
-    <div className="flex h-full" data-nav-collapsed={navCollapsed || undefined}>
+    <div className="flex h-full flex-col md:flex-row" data-nav-collapsed={navCollapsed || undefined}>
       {/* flex, so the SDK aside stretches to the row height like a direct child */}
       <div className="relative flex shrink-0">
         <button
@@ -80,7 +80,7 @@ export function App() {
           onClick={() => setNavCollapsed((v) => !v)}
           aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute right-2 top-3.5 z-10 inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
+          className="absolute right-2 top-3.5 z-10 hidden size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-black/[0.04] hover:text-foreground md:inline-flex"
         >
           <PanelLeft size={16} />
         </button>
