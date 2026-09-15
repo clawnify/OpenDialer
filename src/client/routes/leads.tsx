@@ -176,7 +176,7 @@ function AddLead({ countries, onDone, onError }: { countries: string[]; onDone: 
           submitLabel="Add lead"
           onSubmit={async (body) => {
             try {
-              const { lead } = await api.createLead(body);
+              const { lead } = await api.createLead({ ...body, country: body.country || undefined });
               onDone(`Added ${leadName(lead)} (${lead.phone})`);
             } catch (e) {
               onError((e as Error).message);
