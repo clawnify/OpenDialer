@@ -1,7 +1,7 @@
 {
   "$schema": "https://app.clawnify.com/schema/v1/clawnify.json",
   "version": 1,
-  "name": "OpenDialer",
+  "name": "Dialer",
   "description": "Cold call desk for US and European leads. Import a lead list, click Call, talk through the browser with a local caller ID, and log every attempt. Uses your own Twilio account; the telephony layer is isolated so another carrier can be added later.",
   "icon": "icon.svg",
   "tags": [
@@ -41,7 +41,6 @@
     ]
   },
   "deploy": {
-    "title": "Deploy OpenDialer",
     "subtitle": "A browser calling desk on your own Twilio account.",
     "prompts": [
       {
