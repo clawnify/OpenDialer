@@ -134,7 +134,16 @@ export function registerTwilioWebhooks(app: OpenAPIHono<Env>) {
     if (p.RecordingStatus && p.RecordingStatus !== "completed") return c.body(null, 204);
     if (id && p.RecordingUrl) {
       const seconds = p.RecordingDuration ? parseInt(p.RecordingDuration, 10) || null : null;
-      await run("UPDATE calls SET recording_url = ?, recording_sid = ?, recording_duration = ? WHERE id = ?", [p.RecordingUrl, p.RecordingSid || null, seconds, id]);
+      if (c.req.query("kind") === "voicemail") {
+        // A message, kept apart from the conversation recording. The caller may
+        // already have hung up and been marked missed: a message makes it a voicemail.
+        await run(
+          "UPDATE calls SET voicemail_url = ?, voicemail_sid = ?, voicemail_duration = ?, status = 'voicemail', handled_at = NULL WHERE id = ? AND direction = 'inbound'",
+          [p.RecordingUrl, p.RecordingSid || null, seconds, id],
+        );
+      } else {
+        await run("UPDATE calls SET recording_url = ?, recording_sid = ?, recording_duration = ? WHERE id = ?", [p.RecordingUrl, p.RecordingSid || null, seconds, id]);
+      }
     }
     return c.body(null, 204);
   });

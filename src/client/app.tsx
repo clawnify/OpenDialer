@@ -9,14 +9,21 @@ import { LeadDetail } from "./routes/lead-detail";
 import { Dialer } from "./routes/dialer";
 import { NumbersPage } from "./routes/numbers";
 import { SettingsPage } from "./routes/settings";
+import { InboxPage } from "./routes/inbox";
+import { CallsPage } from "./routes/calls";
+import { TeamsPage } from "./routes/teams";
+import { PhoneProvider } from "./phone";
 
 // One definition of the navigation. <AppNav> paints it as this app's own
 // sidebar when opened directly, and hands it to the Clawnify dashboard's
 // sidebar when embedded there.
 const NAV: AppNavItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/", icon: "layout-dashboard", home: true },
-  { id: "leads", label: "Leads", href: "/leads", icon: "users" },
+  { id: "inbox", label: "Inbox", href: "/inbox", icon: "inbox" },
+  { id: "calls", label: "Calls", href: "/calls", icon: "history" },
+  { id: "leads", label: "Leads", href: "/leads", icon: "contact" },
   { id: "dialer", label: "Dialer", href: "/dialer", icon: "phone" },
+  { id: "teams", label: "Teams", href: "/teams", icon: "users" },
   { id: "numbers", label: "Numbers", href: "/numbers", icon: "hash" },
   { id: "settings", label: "Settings", href: "/settings", icon: "settings" },
 ];
@@ -32,6 +39,14 @@ export function App() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   // Leads still to call — shown as the badge on "Leads".
   const [newLeads, setNewLeads] = useState<number | undefined>();
+  // Missed calls and voicemails nobody has handled — the badge on "Inbox".
+  const [openInbox, setOpenInbox] = useState<number | undefined>();
+  const loadInbox = useCallback(() => {
+    api
+      .inbox({ state: "open" })
+      .then((r) => setOpenInbox(r.open))
+      .catch(() => setOpenInbox(undefined));
+  }, []);
   // Collapse folds the SDK sidebar to icons. The toggle lives here, not in
   // <AppNav>, because the SDK has no slot for it; the proper home is the SDK.
   const [navCollapsed, setNavCollapsed] = useState(false);
@@ -56,7 +71,14 @@ export function App() {
       .leads({ status: "new", limit: 1 })
       .then((r) => setNewLeads(r.total))
       .catch(() => setNewLeads(undefined));
-  }, [location.pathname]);
+    loadInbox();
+  }, [location.pathname, loadInbox]);
+
+  // A call can be missed while the rep stays on one screen.
+  useEffect(() => {
+    const t = setInterval(loadInbox, 60_000);
+    return () => clearInterval(t);
+  }, [loadInbox]);
 
   // Lets the dashboard restore this exact screen on reload.
   useEffect(() => {
@@ -67,54 +89,61 @@ export function App() {
   // dashboard uses the app name as the eyebrow.
   const groups = [
     {
-      items: NAV.map((n) => (n.id === "leads" && newLeads ? { ...n, count: newLeads } : n)),
+      items: NAV.map((n) =>
+        n.id === "leads" && newLeads ? { ...n, count: newLeads } : n.id === "inbox" && openInbox ? { ...n, count: openInbox } : n,
+      ),
     },
   ];
 
   return (
-    <div className="flex h-full flex-col md:flex-row" data-nav-collapsed={navCollapsed || undefined}>
-      {/* flex, so the SDK aside stretches to the row height like a direct child */}
-      <div className="relative flex shrink-0">
-        <button
-          type="button"
-          onClick={() => setNavCollapsed((v) => !v)}
-          aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute right-2 top-3.5 z-10 hidden size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-black/[0.04] hover:text-foreground md:inline-flex"
-        >
-          <PanelLeft size={16} />
-        </button>
-        <AppNav
-          title="OpenDialer"
-          icon="phone"
-          groups={groups}
-          active={activeNavId(location.pathname)}
-          onNavigate={(item) => navigate(item.href!)}
-        />
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {settingsError ? (
-          <ConfigBanner title="Could not load settings" detail={settingsError} />
-        ) : settings && !settings.configured ? (
-          <ConfigBanner
-            title="Twilio is not configured"
-            detail={`Missing: ${settings.missing.join(", ")}. Set them in Environment Variables and redeploy, then open Settings.`}
+    <PhoneProvider settings={settings}>
+      <div className="flex h-full flex-col md:flex-row" data-nav-collapsed={navCollapsed || undefined}>
+        {/* flex, so the SDK aside stretches to the row height like a direct child */}
+        <div className="relative flex shrink-0">
+          <button
+            type="button"
+            onClick={() => setNavCollapsed((v) => !v)}
+            aria-label={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={navCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="absolute right-2 top-3.5 z-10 hidden size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-black/[0.04] hover:text-foreground md:inline-flex"
+          >
+            <PanelLeft size={16} />
+          </button>
+          <AppNav
+            title="OpenDialer"
+            icon="phone"
+            groups={groups}
+            active={activeNavId(location.pathname)}
+            onNavigate={(item) => navigate(item.href!)}
           />
-        ) : null}
+        </div>
 
-        <main className="min-h-0 flex-1 overflow-auto">
-          <Routes>
-            <Route path="/" element={<Dashboard settings={settings} />} />
-            <Route path="/leads" element={<LeadsPage />} />
-            <Route path="/leads/:id" element={<LeadDetail />} />
-            <Route path="/dialer" element={<Dialer settings={settings} />} />
-            <Route path="/numbers" element={<NumbersPage />} />
-            <Route path="/settings" element={<SettingsPage settings={settings} onSaved={loadSettings} />} />
-          </Routes>
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {settingsError ? (
+            <ConfigBanner title="Could not load settings" detail={settingsError} />
+          ) : settings && !settings.configured ? (
+            <ConfigBanner
+              title="Twilio is not configured"
+              detail={`Missing: ${settings.missing.join(", ")}. Set them in Environment Variables and redeploy, then open Settings.`}
+            />
+          ) : null}
+
+          <main className="min-h-0 flex-1 overflow-auto">
+            <Routes>
+              <Route path="/" element={<Dashboard settings={settings} />} />
+              <Route path="/leads" element={<LeadsPage />} />
+              <Route path="/leads/:id" element={<LeadDetail />} />
+              <Route path="/dialer" element={<Dialer settings={settings} />} />
+              <Route path="/numbers" element={<NumbersPage />} />
+              <Route path="/settings" element={<SettingsPage settings={settings} onSaved={loadSettings} />} />
+              <Route path="/inbox" element={<InboxPage onChange={loadInbox} />} />
+              <Route path="/calls" element={<CallsPage />} />
+              <Route path="/teams" element={<TeamsPage />} />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </PhoneProvider>
   );
 }
 
@@ -132,9 +161,9 @@ function ConfigBanner({ title, detail }: { title: string; detail: string }) {
 /** Shared page chrome: sticky toolbar with the title left and actions right. */
 export function Toolbar({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-border bg-card px-6">
-      <h1 className="truncate text-[1.375rem] font-semibold tracking-[-0.01em]">{title}</h1>
-      <div className="flex items-center gap-2">{children}</div>
+    <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border bg-card px-6 py-2.5">
+      <h1 className="shrink-0 truncate text-[1.375rem] font-semibold tracking-[-0.01em]">{title}</h1>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
 }

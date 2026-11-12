@@ -1,4 +1,4 @@
-import { Check, Loader2, PhoneOff } from "lucide-react";
+import { Check, Loader2, PhoneMissed, PhoneOff, Voicemail } from "lucide-react";
 import { Badge, Chip } from "./ui";
 import { OUTCOME_LABELS, type Call, type Lead } from "../api";
 
@@ -29,6 +29,18 @@ export function CallStatusBadge({ status }: { status: Call["status"] }) {
       return <Badge tone="warning">Busy</Badge>;
     case "canceled":
       return <Badge tone="neutral">Canceled</Badge>;
+    case "missed":
+      return (
+        <Badge tone="danger">
+          <PhoneMissed size={11} /> Missed
+        </Badge>
+      );
+    case "voicemail":
+      return (
+        <Badge tone="warning">
+          <Voicemail size={11} /> Voicemail
+        </Badge>
+      );
     default:
       return (
         <Badge tone="danger">

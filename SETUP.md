@@ -25,14 +25,16 @@ number you own becomes a selectable caller ID, and the first one is the
 default when no number matches the lead's country. To pin a specific default,
 set `TWILIO_FROM_NUMBER` (E.164, `+14155550100`).
 
-## 3. API key (for browser calling)
+## 3. API key (for browser calling, inbound and outbound)
 
-**Account → API keys & tokens → Create API key.** Type *Standard*.
+**Account → API keys & tokens → Create API key.** Type *Standard*. Reps'
+browsers ring for inbound calls with a token signed by this key, so taking calls
+needs it even when you never call out.
 
 - **SID** → `TWILIO_API_KEY_SID`
 - **Secret** → `TWILIO_API_KEY_SECRET` (shown once)
 
-## 4. TwiML App (for browser calling)
+## 4. TwiML App (for outbound browser calls)
 
 **Voice → Manage → TwiML apps → Create new TwiML App.**
 
@@ -94,9 +96,45 @@ Then set each number's voice region to Ireland (Phone Numbers → the number →
 
 After changing any of these in Clawnify, redeploy: the values are injected at deploy time, and the first request or two after a deploy can still be answered by the previous version.
 
-## 9. Check it
+## 9. Taking calls
+
+Nothing to configure in the console: the app sets the number's voice URL.
+
+Steps 1 and 2 take a workspace admin.
+
+1. **/teams**: create a team and tick its members. Teammates appear there once
+   they have opened the app.
+2. **/numbers**: open a number, choose one team or a menu, optionally set
+   business hours and greetings, then **Save and take calls here**. This points
+   the number's voice URL and status callback at the app and clears any TwiML
+   App on it; what it pointed at before (voice URL, TwiML App, status callback)
+   is kept, and **Disconnect** puts it back.
+   If the number is also used elsewhere (another system answers it today),
+   connecting moves its calls here.
+3. Each rep sets themselves **Available** (bottom right). Calls ring a rep only
+   while they are available, have the app open in a tab, and are not on
+   another call. Close the tab and the rep stops ringing within 90 seconds.
+
+Each rep phone rung for a call is a separate Twilio call to that browser, so a
+team of five ringing for one inbound call places five calls, plus the answered
+rep's minutes in the conference. Check Twilio's Voice pricing for browser
+(Client) calls and conferences before ringing large teams.
+
+Twilio places these calls at your account's calls-per-second limit, which is one
+per second by default, and queues the rest. With five reps available, the fifth
+starts ringing about four seconds after the first; two calls arriving together
+queue behind each other. For teams larger than a handful, ask Twilio to raise
+your account's limit before going live.
+
+For EU data residency, set the number's voice region to Ireland as in step 8;
+the app's inbound webhooks are the same.
+
+## 10. Check it
 
 1. Open **/settings**: both badges should be green.
 2. Open **/numbers** → **Sync from Twilio**: your numbers appear.
 3. Add yourself as a lead, open **/dialer?lead=…**, click **Call**, allow the
    microphone, and answer your phone.
+4. Connect a number (step 9), set yourself Available, and call the number from
+   your phone: the call rings in the browser. Decline it and let it ring out:
+   your voicemail greeting plays and the message shows up in **/inbox**.

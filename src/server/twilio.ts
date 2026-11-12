@@ -70,6 +70,9 @@ export interface IncomingNumber {
   phone_number: string;
   friendly_name: string;
   capabilities: { voice?: boolean };
+  voice_url?: string | null;
+  voice_application_sid?: string | null;
+  status_callback?: string | null;
 }
 
 /** Every voice-capable number the account owns, following pagination. */
@@ -88,12 +91,17 @@ export async function listIncomingNumbers(env: Bindings): Promise<IncomingNumber
 export interface CreateCallInput {
   to: string;
   from: string;
-  twiml: string;
+  /** Inline TwiML, or `url` that Twilio fetches when the call is answered. One of the two. */
+  twiml?: string;
+  url?: string;
   statusCallback: string;
   timeoutSeconds?: number;
 }
 
-/** REST-originated call (fallback mode). Returns the call SID. */
+/**
+ * REST-originated call: the fallback mode's call to the rep's phone, and every
+ * rep leg of an inbound call (`to: "client:<identity>"`). Returns the call SID.
+ */
 export async function createCall(env: Bindings, input: CreateCallInput): Promise<{ sid: string; status: string }> {
   return twilioFetch<{ sid: string; status: string }>(env, "/Calls.json", {
     method: "POST",
@@ -102,6 +110,7 @@ export async function createCall(env: Bindings, input: CreateCallInput): Promise
       To: input.to,
       From: input.from,
       Twiml: input.twiml,
+      Url: input.url,
       StatusCallback: input.statusCallback,
       StatusCallbackMethod: "POST",
       StatusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
@@ -110,11 +119,42 @@ export async function createCall(env: Bindings, input: CreateCallInput): Promise
   });
 }
 
-export async function endCall(env: Bindings, callSid: string): Promise<void> {
+/** Hang up a call. `canceled` stops one that is still queued or ringing; `completed` ends one in progress. */
+export async function endCall(env: Bindings, callSid: string, status: "completed" | "canceled" = "completed"): Promise<void> {
   await twilioFetch(env, `/Calls/${encodeURIComponent(callSid)}.json`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: form({ Status: "completed" }),
+    body: form({ Status: status }),
+  });
+}
+
+/** Send a live call to new TwiML (the caller's leg to voicemail, for instance). */
+export async function redirectCall(env: Bindings, callSid: string, url: string): Promise<void> {
+  await twilioFetch(env, `/Calls/${encodeURIComponent(callSid)}.json`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: form({ Url: url, Method: "POST" }),
+  });
+}
+
+export async function getIncomingNumber(env: Bindings, numberSid: string): Promise<IncomingNumber> {
+  return twilioFetch<IncomingNumber>(env, `/IncomingPhoneNumbers/${encodeURIComponent(numberSid)}.json`);
+}
+
+/**
+ * Set where a number's incoming calls go. A TwiML App on the number wins over
+ * VoiceUrl, so connecting passes an empty one; disconnecting puts back
+ * whatever was there. Returns the number as Twilio now has it.
+ */
+export async function setNumberVoiceUrl(
+  env: Bindings,
+  numberSid: string,
+  o: { voiceUrl: string; voiceApplicationSid: string; statusCallback: string },
+): Promise<IncomingNumber> {
+  return twilioFetch<IncomingNumber>(env, `/IncomingPhoneNumbers/${encodeURIComponent(numberSid)}.json`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: form({ VoiceUrl: o.voiceUrl, VoiceMethod: "POST", VoiceApplicationSid: o.voiceApplicationSid, StatusCallback: o.statusCallback, StatusCallbackMethod: "POST" }),
   });
 }
 
@@ -154,7 +194,9 @@ export async function voiceAccessToken(env: Bindings, identity: string): Promise
     exp: now + VOICE_TOKEN_TTL_SECONDS,
     grants: {
       identity,
-      voice: { outgoing: { application_sid: env.TWILIO_TWIML_APP_SID } },
+      // incoming.allow lets the page register and ring for inbound calls;
+      // outgoing needs the TwiML App, which inbound-only setups can skip.
+      voice: { incoming: { allow: true }, ...(env.TWILIO_TWIML_APP_SID ? { outgoing: { application_sid: env.TWILIO_TWIML_APP_SID } } : {}) },
     },
   };
   const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
@@ -220,4 +262,49 @@ export function sayTwiml(text: string): string {
 
 export function rejectTwiml(text: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${esc(text)}</Say><Hangup/></Response>`;
+}
+
+const xmlDoc = (body: string) => `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
+
+export function hangupTwiml(say?: string): string {
+  return xmlDoc(`${say ? `<Say>${esc(say)}</Say>` : ""}<Hangup/>`);
+}
+
+/** Press-a-digit menu. Silence falls through to `noInputUrl`. */
+export function gatherTwiml(o: { prompt: string; actionUrl: string; noInputUrl: string }): string {
+  return xmlDoc(
+    `<Gather input="dtmf" numDigits="1" timeout="6" action="${esc(o.actionUrl)}" method="POST"><Say>${esc(o.prompt)}</Say></Gather>` +
+      `<Redirect method="POST">${esc(o.noInputUrl)}</Redirect>`,
+  );
+}
+
+/** Leave a message. The recording arrives on `recordingUrl`; `doneUrl` runs after the beep-and-talk ends. */
+export function voicemailTwiml(o: { greeting: string; doneUrl: string; recordingUrl: string }): string {
+  return xmlDoc(
+    `<Say>${esc(o.greeting)}</Say>` +
+      `<Record maxLength="180" playBeep="true" timeout="5" action="${esc(o.doneUrl)}" method="POST" recordingStatusCallback="${esc(o.recordingUrl)}" recordingStatusCallbackEvent="completed"/>` +
+      `<Hangup/>`,
+  );
+}
+
+export interface ConferenceOptions {
+  name: string;
+  /** The caller waits (hold music, muted) until a rep joins; reps start it. */
+  role: "caller" | "rep";
+  record: boolean;
+  recordingUrl: string;
+  label: string;
+}
+
+/**
+ * Join the call's conference. The caller ends it by leaving; a rep leaving
+ * does not, so a transfer can hand the caller from one rep to the next. Every
+ * participant carries the same record setting, so it holds whoever starts it.
+ */
+export function conferenceTwiml(o: ConferenceOptions, prefix = ""): string {
+  const caller = o.role === "caller";
+  const record = o.record ? ` record="record-from-start" recordingStatusCallback="${esc(o.recordingUrl)}" recordingStatusCallbackEvent="completed"` : "";
+  return xmlDoc(
+    `${prefix}<Dial><Conference startConferenceOnEnter="${caller ? "false" : "true"}" endConferenceOnExit="${caller ? "true" : "false"}" beep="false" participantLabel="${esc(o.label)}"${record}>${esc(o.name)}</Conference></Dial>`,
+  );
 }

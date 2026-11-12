@@ -21,6 +21,22 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_phone ON leads(phone);
 
+-- A team is a ring group: an inbound call rings every available member's
+-- browser at once and the first to answer takes it.
+CREATE TABLE IF NOT EXISTS teams (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  ring_seconds INTEGER NOT NULL DEFAULT 25,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  PRIMARY KEY (team_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
+
 -- Caller IDs. Only numbers the Twilio account actually owns land here (via
 -- POST /api/numbers/sync); the app never dials from a number it did not sync.
 CREATE TABLE IF NOT EXISTS numbers (
@@ -31,12 +47,35 @@ CREATE TABLE IF NOT EXISTS numbers (
   area_code TEXT NOT NULL DEFAULT '',
   twilio_sid TEXT NOT NULL DEFAULT '',
   active INTEGER NOT NULL DEFAULT 1,
+  -- Inbound routing. A number takes calls only once `connected` is 1, which
+  -- POST /api/numbers/{id}/connect sets after pointing its Twilio voice URL
+  -- at this app. route: off | team (ring one team) | menu (press-a-digit IVR).
+  label TEXT NOT NULL DEFAULT '',
+  route TEXT NOT NULL DEFAULT 'off',
+  team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
+  -- JSON [{ "digit": "1", "label": "Sales", "team_id": "..." }]
+  menu TEXT NOT NULL DEFAULT '[]',
+  greeting TEXT NOT NULL DEFAULT '',
+  -- JSON { "tz": "Europe/Amsterdam", "days": { "mon": [["09:00","17:30"]], ... } }.
+  -- Empty string = always open. A day missing from `days` is closed.
+  hours TEXT NOT NULL DEFAULT '',
+  closed_message TEXT NOT NULL DEFAULT '',
+  voicemail_greeting TEXT NOT NULL DEFAULT '',
+  record_inbound INTEGER NOT NULL DEFAULT 1,
+  connected INTEGER NOT NULL DEFAULT 0,
+  -- What the number pointed at before it was connected here, restored on disconnect.
+  previous_voice_url TEXT NOT NULL DEFAULT '',
+  previous_voice_application_sid TEXT NOT NULL DEFAULT '',
+  previous_status_callback TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS calls (
   id TEXT PRIMARY KEY,
-  lead_id TEXT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+  -- Null for an inbound caller who is not a lead yet.
+  lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
+  -- The rep on the call: the caller for outbound, whoever answered (or was
+  -- transferred to last) for inbound. Null for an inbound call nobody took.
   user_id TEXT,
   from_number TEXT NOT NULL,
   to_number TEXT NOT NULL,
@@ -46,10 +85,15 @@ CREATE TABLE IF NOT EXISTS calls (
   twilio_call_sid TEXT,
   parent_call_sid TEXT,
   -- browser: Voice SDK in the page. api: Twilio rings the rep's phone first,
-  -- then bridges to the lead.
+  -- then bridges to the lead. conference: inbound; the caller waits in a
+  -- conference named after the call id and reps join it (call_legs).
   mode TEXT NOT NULL DEFAULT 'browser',
-  direction TEXT NOT NULL DEFAULT 'outbound',
-  status TEXT NOT NULL DEFAULT 'initiated', -- initiated|ringing|in-progress|completed|failed|no-answer|busy|canceled
+  direction TEXT NOT NULL DEFAULT 'outbound', -- outbound|inbound
+  -- initiated|ringing|in-progress|completed|failed|no-answer|busy|canceled,
+  -- plus missed|voicemail for inbound calls nobody answered.
+  status TEXT NOT NULL DEFAULT 'initiated',
+  number_id TEXT REFERENCES numbers(id) ON DELETE SET NULL,
+  team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
   started_at TEXT,
   ended_at TEXT,
   duration_seconds INTEGER,
@@ -60,9 +104,22 @@ CREATE TABLE IF NOT EXISTS calls (
   recording_duration INTEGER,
   outcome TEXT, -- connected|voicemail|no_answer|busy|wrong_number|not_interested|callback|do_not_call
   notes TEXT NOT NULL DEFAULT '',
+  -- A message left by an inbound caller. Kept apart from recording_url, which
+  -- is the conversation, so a call that was answered and then sent to
+  -- voicemail (a transfer nobody took) keeps both.
+  voicemail_url TEXT,
+  voicemail_sid TEXT,
+  voicemail_duration INTEGER,
+  -- JSON array of short labels: ["billing", "urgent"].
+  tags TEXT NOT NULL DEFAULT '[]',
+  -- Inbox: a missed call or voicemail stays open until someone marks it handled.
+  assigned_to TEXT,
+  handled_at TEXT,
+  handled_by TEXT,
   error TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_calls_inbox ON calls(direction, status, handled_at);
 CREATE INDEX IF NOT EXISTS idx_calls_lead ON calls(lead_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_calls_user_status ON calls(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_calls_sid ON calls(twilio_call_sid);
@@ -91,5 +148,30 @@ CREATE TABLE IF NOT EXISTS user_settings (
   callback_number TEXT NOT NULL DEFAULT '',
   default_from_number TEXT NOT NULL DEFAULT '',
   record_calls INTEGER NOT NULL DEFAULT 1,
+  -- The rep as the platform names them, refreshed on every heartbeat.
+  name TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  -- Takes inbound calls only while available AND the app is open
+  -- (last_seen_at within 90 s, kept fresh by POST /api/presence).
+  available INTEGER NOT NULL DEFAULT 0,
+  last_seen_at TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- One row per rep phone rung for an inbound call: the initial ring of a
+-- team, or a transfer. status: ringing -> joined -> left, or ringing -> missed.
+CREATE TABLE IF NOT EXISTS call_legs (
+  id TEXT PRIMARY KEY,
+  call_id TEXT NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'ring', -- ring|transfer
+  -- Blind transfer: the leg to drop once this one joins.
+  replaces_leg_id TEXT,
+  twilio_call_sid TEXT,
+  status TEXT NOT NULL DEFAULT 'ringing',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_call_legs_call ON call_legs(call_id, status);
+CREATE INDEX IF NOT EXISTS idx_call_legs_sid ON call_legs(twilio_call_sid);
+CREATE INDEX IF NOT EXISTS idx_call_legs_user ON call_legs(user_id, status);

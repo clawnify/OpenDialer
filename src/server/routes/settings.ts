@@ -1,4 +1,4 @@
-import { createRoute, z, user, type OpenAPIHono } from "@clawnify/app";
+import { caller, createRoute, hasRole, z, user, type OpenAPIHono } from "@clawnify/app";
 import { get, run } from "../db.js";
 import { providerConfig, publicOrigin } from "../config.js";
 import { normalizePhone } from "../phone.js";
@@ -12,16 +12,33 @@ const SettingsSchema = z
     edge: z.string().nullable().openapi({ description: "Voice SDK edge for the region; null = SDK default" }),
     configured: z.boolean().openapi({ description: "Account SID, auth token and default number all present" }),
     voice_sdk_enabled: z.boolean().openapi({ description: "Browser calling available; otherwise calls fall back to ringing the rep's phone" }),
+    incoming_enabled: z.boolean().openapi({ description: "Inbound calls can ring reps' browsers (API key set)" }),
     missing: z.array(z.string()).openapi({ description: "Required env vars that are not set" }),
     default_from_number: z.string(),
     public_url: z.string(),
-    webhooks: z.object({ voice: z.string(), status: z.string(), recording: z.string() }),
+    webhooks: z.object({ voice: z.string(), status: z.string(), recording: z.string(), inbound: z.string().openapi({ description: "Set on a number by Numbers → Connect" }), inbound_status: z.string() }),
     user: z.object({ id: z.string(), name: z.string() }).nullable(),
+    identity: z.string().openapi({ description: "This rep's key: the Voice SDK identity inbound calls ring" }),
     callback_number: z.string().openapi({ description: "This rep's phone for the fallback mode" }),
     preferred_from_number: z.string().openapi({ description: "This rep's preferred caller ID; empty = local presence picks" }),
     record_calls: z.boolean().openapi({ description: "Record this rep's calls (default on)" }),
   })
   .openapi("Settings");
+
+/**
+ * Who may change call routing (numbers, teams). Rewiring a number moves the
+ * company's live calls, so on the platform it takes an admin (or a plan
+ * without roles). Callers with no person behind them (an agent's browser, a
+ * sibling app) are refused. Only off-platform (local dev) passes unchecked:
+ * there the platform sends no caller at all, which the SDK reads as "public",
+ * and on the platform these routes are never public.
+ */
+export function canManageRouting(c: Parameters<typeof hasRole>[0]): boolean {
+  if (!user(c) && caller(c) === "public") return true;
+  return hasRole(c, "admin");
+}
+
+export const ROUTING_FORBIDDEN = "Only workspace admins can change numbers and teams.";
 
 export function userKey(c: { req: { header: (n: string) => string | undefined } }): string {
   // Off-platform (local dev) there is no identity header; one shared rep.
@@ -60,11 +77,13 @@ export function registerSettingsRoutes(app: OpenAPIHono<Env>) {
         edge: cfg.edge,
         configured: cfg.rest && cfg.missing.length === 0,
         voice_sdk_enabled: cfg.voiceSdk,
+        incoming_enabled: cfg.incoming,
         missing: cfg.missing,
         default_from_number: cfg.fromNumber,
         public_url: origin,
-        webhooks: { voice: `${origin}/api/twilio/voice`, status: `${origin}/api/twilio/status`, recording: `${origin}/api/twilio/recording` },
+        webhooks: { voice: `${origin}/api/twilio/voice`, status: `${origin}/api/twilio/status`, recording: `${origin}/api/twilio/recording`, inbound: `${origin}/api/twilio/inbound`, inbound_status: `${origin}/api/twilio/inbound-status` },
         user: u ? { id: u.id, name: u.name || u.email || "" } : null,
+        identity: userKey(c),
         callback_number: prefs?.callback_number || "",
         preferred_from_number: prefs?.default_from_number || "",
         record_calls: prefs ? prefs.record_calls === 1 : true,

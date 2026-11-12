@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Phone, Upload } from "lucide-react";
 import { Toolbar } from "../app";
-import { api, fmtDate, fmtDuration, leadName, type Call, type Lead, type Settings } from "../api";
+import { api, callParty, fmtDate, fmtDuration, leadName, type Call, type Lead, type Settings } from "../api";
 import { Button, Card, Empty, CardTitle, Zone } from "../components/ui";
 import { CallStatusBadge, OutcomeChip } from "../components/status";
 
@@ -10,8 +10,7 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
   const nav = useNavigate();
   const [todo, setTodo] = useState<{ leads: Lead[]; total: number } | null>(null);
   const [callbacks, setCallbacks] = useState<Lead[]>([]);
-  const [recent, setRecent] = useState<(Call & { lead?: Lead })[]>([]);
-  const [leadsById, setLeadsById] = useState<Record<string, Lead>>({});
+  const [recent, setRecent] = useState<Call[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
@@ -21,16 +20,6 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
         const [t, c] = await Promise.all([api.leads({ status: "new", limit: 10 }), api.calls({ limit: 20 })]);
         setTodo({ leads: t.leads, total: t.total });
         setRecent(c.calls);
-        const ids = [...new Set(c.calls.map((x) => x.lead_id))];
-        const found: Record<string, Lead> = {};
-        await Promise.all(ids.map(async (id) => {
-          try {
-            found[id] = (await api.lead(id)).lead;
-          } catch {
-            /* deleted lead */
-          }
-        }));
-        setLeadsById(found);
         const cb = await api.leads({ status: "called", limit: 100 });
         setCallbacks(cb.leads.filter((l) => l.last_outcome === "callback"));
       } catch (e) {
@@ -113,7 +102,7 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground first:pl-6">Lead</th>
+                    <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground first:pl-6">Contact</th>
                     <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground">Status</th>
                     <th className="h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground">Outcome</th>
                     <th className="data h-10 px-3 text-left text-[0.8125rem] font-medium text-muted-foreground text-right">Duration</th>
@@ -122,11 +111,11 @@ export function Dashboard({ settings }: { settings: Settings | null }) {
                 </thead>
                 <tbody>
                   {recent.map((c) => {
-                    const l = leadsById[c.lead_id];
                     return (
                       <tr key={c.id} className="h-11 border-b border-border hover:bg-muted">
                         <td className="px-3 py-2 first:pl-6">
-                          {l ? <Link to={`/leads/${l.id}`} className="hover:underline">{leadName(l)}</Link> : <span className="text-faint">{c.to_number}</span>}
+                          {c.lead_id ? <Link to={`/leads/${c.lead_id}`} className="hover:underline">{callParty(c)}</Link> : <span className="data text-muted-foreground">{callParty(c)}</span>}
+                          {c.direction === "inbound" ? <span className="ml-1.5 text-xs text-faint">inbound</span> : null}
                         </td>
                         <td className="px-3 py-2"><CallStatusBadge status={c.status} /></td>
                         <td className="px-3 py-2"><OutcomeChip outcome={c.outcome} /></td>

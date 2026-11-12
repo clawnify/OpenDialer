@@ -6,6 +6,7 @@ import { api, fmtDate, fmtDuration, leadName, OUTCOME_LABELS, type Call, type Ca
 import { Button, Card, Chip, Empty, CardTitle, Zone } from "../components/ui";
 import { CallStatusBadge, OutcomeChip } from "../components/status";
 import { VoiceClient } from "../voice";
+import { usePhone } from "../phone";
 import { RecordingPlayer } from "../components/recording-player";
 
 const LEGAL =
@@ -36,12 +37,8 @@ export function Dialer({ settings }: { settings: Settings | null }) {
   const [tick, setTick] = useState(0);
   const [done, setDone] = useState(false);
   const liveSince = useRef<number | null>(null);
-  const voice = useRef<VoiceClient | null>(null);
-
-  useEffect(() => {
-    voice.current = new VoiceClient();
-    return () => voice.current?.destroy();
-  }, []);
+  // The page-wide device (PhoneProvider), shared with inbound ringing.
+  const voice = useRef<VoiceClient>(usePhone().voice);
 
   const loadLead = useCallback(async (id: string) => {
     const r = await api.lead(id);

@@ -27,6 +27,8 @@ export interface ProviderConfig {
   rest: boolean;
   /** Browser calling through the Voice SDK works (TwiML App + API key present). */
   voiceSdk: boolean;
+  /** The browser can register and ring for inbound calls (API key present; no TwiML App needed). */
+  incoming: boolean;
   fromNumber: string;
   missing: string[];
 }
@@ -36,9 +38,10 @@ export function providerConfig(env: Bindings): ProviderConfig {
   const missing: string[] = [];
   for (const k of ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"] as const) if (!has(env[k])) missing.push(k);
   const rest = has(env.TWILIO_ACCOUNT_SID) && has(env.TWILIO_AUTH_TOKEN);
-  const voiceSdk = rest && has(env.TWILIO_TWIML_APP_SID) && has(env.TWILIO_API_KEY_SID) && has(env.TWILIO_API_KEY_SECRET);
+  const incoming = rest && has(env.TWILIO_API_KEY_SID) && has(env.TWILIO_API_KEY_SECRET);
+  const voiceSdk = incoming && has(env.TWILIO_TWIML_APP_SID);
   const region = twilioRegion(env);
-  return { provider: "twilio", region, edge: TWILIO_REGIONS[region].edge, rest, voiceSdk, fromNumber: (env.TWILIO_FROM_NUMBER || "").trim(), missing };
+  return { provider: "twilio", region, edge: TWILIO_REGIONS[region].edge, rest, voiceSdk, incoming, fromNumber: (env.TWILIO_FROM_NUMBER || "").trim(), missing };
 }
 
 /** Origin Twilio should call back. PUBLIC_APP_URL wins; otherwise the request's own origin. */
