@@ -1,15 +1,17 @@
 {
   "$schema": "https://app.clawnify.com/schema/v1/clawnify.json",
   "version": 1,
-  "name": "Dialer",
-  "description": "Cold call desk for US and European leads. Import a lead list, click Call, talk through the browser with a local caller ID, and log every attempt. Uses your own Twilio account; the telephony layer is isolated so another carrier can be added later.",
+  "name": "Phone",
+  "description": "Phone system for sales and support teams on your own Twilio account. Inbound numbers with business hours and a press-a-digit menu ring a team in the browser, first answer wins; warm and blind transfers, voicemail and a shared inbox for missed calls. Plus an outbound dialer with local caller ID for lead lists.",
   "icon": "icon.svg",
   "tags": [
-    "sales",
+    "phone-system",
     "calling",
+    "call-center",
     "dialer",
     "twilio",
-    "cold-calling"
+    "support",
+    "sales"
   ],
   "app": {
     "framework": "react+hono",
@@ -41,7 +43,7 @@
     ]
   },
   "deploy": {
-    "subtitle": "A browser calling desk on your own Twilio account.",
+    "subtitle": "A browser phone system for your team, on your own Twilio account.",
     "prompts": [
       {
         "key": "company_name",

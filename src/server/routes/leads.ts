@@ -28,14 +28,16 @@ export const LeadSchema = z
 export const CallSchema = z
   .object({
     id: z.string(),
-    lead_id: z.string(),
-    user_id: z.string().nullable(),
+    lead_id: z.string().nullable().openapi({ description: "Null for an inbound caller who is not a lead yet" }),
+    user_id: z.string().nullable().openapi({ description: "The rep on the call; for inbound, whoever answered last" }),
     from_number: z.string(),
     to_number: z.string(),
     twilio_call_sid: z.string().nullable(),
-    mode: z.string(),
-    direction: z.string(),
-    status: z.string(),
+    mode: z.string().openapi({ description: "browser | api | conference (inbound)" }),
+    direction: z.string().openapi({ description: "outbound | inbound" }),
+    status: z.string().openapi({ description: "initiated | ringing | in-progress | completed | failed | no-answer | busy | canceled | missed | voicemail" }),
+    number_id: z.string().nullable().openapi({ description: "Inbound: the owned number that was called" }),
+    team_id: z.string().nullable().openapi({ description: "Inbound: the team that was rung" }),
     started_at: z.string().nullable(),
     ended_at: z.string().nullable(),
     duration_seconds: z.number().int().nullable(),
@@ -44,10 +46,28 @@ export const CallSchema = z
     recording_duration: z.number().int().nullable().openapi({ description: "Seconds, once Twilio reports it" }),
     outcome: z.string().nullable(),
     notes: z.string(),
+    voicemail_url: z.string().nullable().openapi({ description: "App route that streams the caller's message; null when none was left" }),
+    voicemail_duration: z.number().int().nullable(),
+    tags: z.array(z.string()),
+    assigned_to: z.string().nullable().openapi({ description: "Inbox: the rep who should call back" }),
+    handled_at: z.string().nullable().openapi({ description: "Inbox: set once a missed call or voicemail is dealt with" }),
+    handled_by: z.string().nullable(),
+    contact_name: z.string().nullable().openapi({ description: "The lead's name, when the call has one" }),
+    user_name: z.string().nullable().openapi({ description: "The rep's display name" }),
     error: z.string(),
     created_at: z.string(),
   })
   .openapi("Call");
+
+/** Every call read joins the contact's and the rep's names. Alias the table `c`. */
+export const CALL_SELECT = `
+  c.*,
+  (SELECT NULLIF(TRIM(l.first_name || ' ' || l.last_name), '') FROM leads l WHERE l.id = c.lead_id) AS contact_name,
+  (SELECT NULLIF(u.name, '') FROM user_settings u WHERE u.user_id = c.user_id) AS user_name`;
+
+export async function loadCall(id: string): Promise<(CallRow & { contact_name: string | null; user_name: string | null }) | undefined> {
+  return get(`SELECT ${CALL_SELECT} FROM calls c WHERE c.id = ?`, [id]);
+}
 
 /** Every lead read joins its latest call so list rows never need a second query. */
 export const LEAD_SELECT = `
@@ -63,9 +83,23 @@ export async function loadLead(id: string): Promise<LeadOut | undefined> {
 }
 
 /** Never expose Twilio's media URL (it needs the auth token); point at our proxy. */
-export function publicCall(row: CallRow) {
-  const { recording_sid: _sid, parent_call_sid: _p, ...rest } = row;
-  return { ...rest, recording_url: row.recording_url ? `/api/calls/${row.id}/recording` : null };
+export function publicCall(row: CallRow & { contact_name?: string | null; user_name?: string | null }) {
+  const { recording_sid: _sid, parent_call_sid: _p, voicemail_sid: _v, ...rest } = row;
+  let tags: string[] = [];
+  try {
+    const t = JSON.parse(row.tags || "[]");
+    if (Array.isArray(t)) tags = t.filter((x): x is string => typeof x === "string");
+  } catch {
+    /* a hand-edited row; show no tags rather than fail the read */
+  }
+  return {
+    ...rest,
+    tags,
+    contact_name: row.contact_name ?? null,
+    user_name: row.user_name ?? null,
+    recording_url: row.recording_url ? `/api/calls/${row.id}/recording` : null,
+    voicemail_url: row.voicemail_url ? `/api/calls/${row.id}/voicemail` : null,
+  };
 }
 
 function paging(q: { page?: string; limit?: string }) {
@@ -138,7 +172,7 @@ export function registerLeadRoutes(app: OpenAPIHono<Env>) {
     method: "post",
     path: "/api/leads",
     tags: ["Leads"],
-    summary: "Add one lead. The phone is normalised to E.164 or the request is rejected.",
+    summary: "Add one lead. The phone is normalised to E.164 or the request is rejected. Earlier inbound calls from that number are filed under the new lead.",
     request: { body: { content: { "application/json": { schema: LeadInput } } } },
     responses: {
       201: { description: "Created", content: { "application/json": { schema: z.object({ lead: LeadSchema }) } } },
@@ -155,6 +189,8 @@ export function registerLeadRoutes(app: OpenAPIHono<Env>) {
       `INSERT INTO leads (id, first_name, last_name, company, phone, country, timezone, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, body.first_name?.trim() || "", body.last_name?.trim() || "", body.company?.trim() || "", phone.e164, phone.country, body.timezone || null, body.notes || ""],
     );
+    // Saving an unknown caller as a lead files their earlier inbound calls under it.
+    await run("UPDATE calls SET lead_id = ? WHERE lead_id IS NULL AND direction = 'inbound' AND from_number = ?", [id, phone.e164]);
     return c.json({ lead: (await loadLead(id))! }, 201);
   });
 
@@ -173,7 +209,7 @@ export function registerLeadRoutes(app: OpenAPIHono<Env>) {
   app.openapi(getLead, async (c) => {
     const lead = await loadLead(c.req.valid("param").id);
     if (!lead) return c.json({ error: "Lead not found" }, 404);
-    const calls = await query<CallRow>("SELECT * FROM calls WHERE lead_id = ? ORDER BY created_at DESC LIMIT 100", [lead.id]);
+    const calls = await query<CallRow>(`SELECT ${CALL_SELECT} FROM calls c WHERE c.lead_id = ? ORDER BY c.created_at DESC LIMIT 100`, [lead.id]);
     return c.json({ lead, calls: calls.map(publicCall) }, 200);
   });
 

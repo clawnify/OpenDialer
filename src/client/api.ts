@@ -19,14 +19,26 @@ export interface Lead {
 
 export interface Call {
   id: string;
-  lead_id: string;
+  /** Null for an inbound caller who is not a lead yet. */
+  lead_id: string | null;
   user_id: string | null;
   from_number: string;
   to_number: string;
   twilio_call_sid: string | null;
-  mode: "browser" | "api";
-  direction: string;
-  status: "initiated" | "ringing" | "in-progress" | "completed" | "failed" | "no-answer" | "busy" | "canceled";
+  mode: "browser" | "api" | "conference";
+  direction: "outbound" | "inbound";
+  status: "initiated" | "ringing" | "in-progress" | "completed" | "failed" | "no-answer" | "busy" | "canceled" | "missed" | "voicemail";
+  number_id: string | null;
+  team_id: string | null;
+  /** The caller's message, streamed by the app; null when none was left. */
+  voicemail_url: string | null;
+  voicemail_duration: number | null;
+  tags: string[];
+  assigned_to: string | null;
+  handled_at: string | null;
+  handled_by: string | null;
+  contact_name: string | null;
+  user_name: string | null;
   started_at: string | null;
   ended_at: string | null;
   duration_seconds: number | null;
@@ -39,12 +51,63 @@ export interface Call {
   created_at: string;
 }
 
+export interface MenuOption {
+  digit: string;
+  label: string;
+  team_id: string;
+}
+
+export type Day = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export interface Hours {
+  tz: string;
+  days: Partial<Record<Day, [string, string][]>>;
+}
+
 export interface OwnedNumber {
   id: string;
   e164: string;
   country: string;
   area_code: string;
   active: number;
+  label: string;
+  route: "off" | "team" | "menu";
+  team_id: string | null;
+  menu: MenuOption[];
+  greeting: string;
+  hours: Hours | null;
+  closed_message: string;
+  voicemail_greeting: string;
+  record_inbound: boolean;
+  connected: boolean;
+}
+
+export type NumberRouting = Partial<Pick<OwnedNumber, "label" | "route" | "team_id" | "menu" | "greeting" | "hours" | "closed_message" | "voicemail_greeting" | "record_inbound">>;
+
+export interface Rep {
+  id: string;
+  name: string;
+  email: string;
+  available: boolean;
+  online: boolean;
+  on_call: boolean;
+  team_ids: string[];
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  ring_seconds: number;
+  member_ids: string[];
+  created_at: string;
+}
+
+export interface RingingCall {
+  call: Call | null;
+  leg_id: string | null;
+  kind: "ring" | "transfer" | null;
+  team_name: string | null;
+  number_label: string | null;
 }
 
 export interface Campaign {
@@ -61,11 +124,14 @@ export interface Settings {
   edge: string | null;
   configured: boolean;
   voice_sdk_enabled: boolean;
+  incoming_enabled: boolean;
   missing: string[];
   default_from_number: string;
   public_url: string;
-  webhooks: { voice: string; status: string; recording: string };
+  webhooks: { voice: string; status: string; recording: string; inbound: string; inbound_status: string };
   user: { id: string; name: string } | null;
+  /** This rep's key; inbound calls ring the browser registered under it. */
+  identity: string;
   callback_number: string;
   preferred_from_number: string;
   record_calls: boolean;
@@ -120,8 +186,26 @@ export const api = {
 
   numbers: () => req<{ numbers: OwnedNumber[] }>("/api/numbers"),
   syncNumbers: () => req<{ synced: number; numbers: OwnedNumber[] }>("/api/numbers/sync", { method: "POST" }),
+  saveNumber: (id: string, body: NumberRouting) => req<{ number: OwnedNumber }>(`/api/numbers/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  connectNumber: (id: string) => req<{ number: OwnedNumber; previous_voice_url: string }>(`/api/numbers/${id}/connect`, { method: "POST" }),
+  disconnectNumber: (id: string) => req<{ number: OwnedNumber }>(`/api/numbers/${id}/disconnect`, { method: "POST" }),
 
-  calls: (p: { page?: number; limit?: number; lead_id?: string } = {}) =>
+  presence: (available?: boolean) => req<{ available: boolean }>("/api/presence", { method: "POST", body: JSON.stringify(available === undefined ? {} : { available }) }),
+  reps: () => req<{ reps: Rep[] }>("/api/reps"),
+  teams: () => req<{ teams: Team[] }>("/api/teams"),
+  createTeam: (body: { name: string; ring_seconds?: number; member_ids?: string[] }) => req<{ team: Team }>("/api/teams", { method: "POST", body: JSON.stringify(body) }),
+  updateTeam: (id: string, body: { name?: string; ring_seconds?: number; member_ids?: string[] }) => req<{ team: Team }>(`/api/teams/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteTeam: (id: string) => req<{ ok: boolean }>(`/api/teams/${id}`, { method: "DELETE" }),
+
+  inbox: (p: { state?: "open" | "handled" | "all"; assigned?: "me" | "anyone" | "nobody" } = {}) =>
+    req<{ calls: Call[]; total: number; open: number }>(`/api/inbox${qs(p)}`),
+  updateCall: (id: string, body: { notes?: string; tags?: string[]; assigned_to?: string | null; handled?: boolean }) =>
+    req<{ call: Call }>(`/api/calls/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  ringing: (leg_sid?: string) => req<RingingCall>(`/api/calls/ringing${qs({ leg_sid })}`),
+  transfer: (id: string, body: { user_id?: string; team_id?: string; mode: "warm" | "blind" }) =>
+    req<{ ringing: string[] }>(`/api/calls/${id}/transfer`, { method: "POST", body: JSON.stringify(body) }),
+
+  calls: (p: { page?: number; limit?: number; lead_id?: string; direction?: "inbound" | "outbound"; status?: string; user_id?: string; tag?: string } = {}) =>
     req<{ calls: Call[]; total: number; page: number; limit: number }>(`/api/calls${qs(p)}`),
   call: (id: string) => req<{ call: Call }>(`/api/calls/${id}`),
   startCall: (lead_id: string, from_number?: string) =>
@@ -152,6 +236,11 @@ export const OUTCOME_LABELS: Record<string, string> = {
 
 export function leadName(l: Pick<Lead, "first_name" | "last_name" | "phone">): string {
   return [l.first_name, l.last_name].filter(Boolean).join(" ") || l.phone;
+}
+
+/** Who the call was with: the lead's name, else the other party's number. */
+export function callParty(c: Pick<Call, "contact_name" | "direction" | "from_number" | "to_number">): string {
+  return c.contact_name || (c.direction === "inbound" ? c.from_number : c.to_number) || "Unknown";
 }
 
 export function fmtDuration(s: number | null | undefined): string {

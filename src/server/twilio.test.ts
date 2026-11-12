@@ -22,7 +22,7 @@ describe("voiceAccessToken", () => {
     const payload = dec(p);
     expect(payload.iss).toBe("SKxxx");
     expect(payload.sub).toBe("ACxxx");
-    expect(payload.grants).toEqual({ identity: "rep-1", voice: { outgoing: { application_sid: "APxxx" } } });
+    expect(payload.grants).toEqual({ identity: "rep-1", voice: { incoming: { allow: true }, outgoing: { application_sid: "APxxx" } } });
     expect(payload.exp - payload.iat).toBe(3600);
     expect(s.length).toBeGreaterThan(20);
   });

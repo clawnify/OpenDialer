@@ -4,7 +4,7 @@ import { providerConfig, publicOrigin } from "../config.js";
 import { normalizePhone } from "../phone.js";
 import { pickFromNumber } from "../presence.js";
 import { createCall, dialTwiml, endCall, fetchRecording, sayTwiml, TwilioError, voiceAccessToken, VOICE_TOKEN_TTL_SECONDS } from "../twilio.js";
-import { CallSchema, ErrorSchema, loadLead, publicCall } from "./leads.js";
+import { CALL_SELECT, CallSchema, ErrorSchema, loadCall, loadLead, publicCall } from "./leads.js";
 import { userKey } from "./settings.js";
 import { ACTIVE_CALL_STATUSES, OUTCOMES, type CallRow, type Env, type NumberRow } from "../types.js";
 
@@ -32,7 +32,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     method: "post",
     path: "/api/token",
     tags: ["Calls"],
-    summary: "Short-lived Twilio Voice SDK token for the current rep (browser calling only)",
+    summary: "Short-lived Twilio Voice SDK token for the current rep: outbound browser calls and ringing for inbound calls",
     responses: {
       200: { description: "Token", content: { "application/json": { schema: z.object({ token: z.string(), identity: z.string(), ttl_seconds: z.number().int() }) } } },
       400: { description: "Voice SDK not configured", content: { "application/json": { schema: ErrorSchema } } },
@@ -40,7 +40,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
   });
   app.openapi(token, async (c) => {
     const cfg = providerConfig(c.env);
-    if (!cfg.voiceSdk) return c.json({ error: "Browser calling needs TWILIO_TWIML_APP_SID, TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET." }, 400);
+    if (!cfg.incoming) return c.json({ error: "Browser calling needs TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET (and TWILIO_TWIML_APP_SID for outbound calls)." }, 400);
     const identity = userKey(c);
     return c.json({ token: await voiceAccessToken(c.env, identity), identity, ttl_seconds: VOICE_TOKEN_TTL_SECONDS }, 200);
   });
@@ -126,7 +126,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
 
     if (mode === "browser") {
       const tok = await voiceAccessToken(c.env, rep);
-      const row = (await get<CallRow>("SELECT * FROM calls WHERE id = ?", [id]))!;
+      const row = (await loadCall(id))!;
       // Only the call id crosses the browser; number and caller ID are read back from the row.
       return c.json({ call: publicCall(row), mode, token: tok, connect_params: { callId: id } }, 201);
     }
@@ -150,7 +150,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
       await run("UPDATE leads SET status = 'called', updated_at = datetime('now') WHERE id = ?", [lead.id]);
       return c.json({ error: msg }, 502);
     }
-    const row = (await get<CallRow>("SELECT * FROM calls WHERE id = ?", [id]))!;
+    const row = (await loadCall(id))!;
     return c.json({ call: publicCall(row), mode, token: null, connect_params: null }, 201);
   });
 
@@ -158,8 +158,18 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     method: "get",
     path: "/api/calls",
     tags: ["Calls"],
-    summary: "Call log, newest first, paginated",
-    request: { query: z.object({ page: z.string().optional(), limit: z.string().optional(), lead_id: z.string().optional(), status: z.string().optional() }) },
+    summary: "Team call log, inbound and outbound, newest first, paginated",
+    request: {
+      query: z.object({
+        page: z.string().optional(),
+        limit: z.string().optional(),
+        lead_id: z.string().optional(),
+        status: z.string().optional(),
+        direction: z.enum(["inbound", "outbound"]).optional(),
+        user_id: z.string().optional().openapi({ description: "Calls this rep made or took" }),
+        tag: z.string().optional(),
+      }),
+    },
     responses: { 200: { description: "Calls", content: { "application/json": { schema: z.object({ calls: z.array(CallSchema), total: z.number().int(), page: z.number().int(), limit: z.number().int() }) } } } },
   });
   app.openapi(list, async (c) => {
@@ -167,17 +177,18 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     const { page, limit, offset } = paging(q);
     const where: string[] = [];
     const params: unknown[] = [];
-    if (q.lead_id) {
-      where.push("lead_id = ?");
-      params.push(q.lead_id);
+    for (const [col, v] of [["c.lead_id", q.lead_id], ["c.status", q.status], ["c.direction", q.direction], ["c.user_id", q.user_id]] as const) {
+      if (!v) continue;
+      where.push(`${col} = ?`);
+      params.push(v);
     }
-    if (q.status) {
-      where.push("status = ?");
-      params.push(q.status);
+    if (q.tag) {
+      where.push("EXISTS (SELECT 1 FROM json_each(c.tags) WHERE json_each.value = ?)");
+      params.push(q.tag.toLowerCase());
     }
     const sql = where.length ? ` WHERE ${where.join(" AND ")}` : "";
-    const total = await get<{ total: number }>(`SELECT COUNT(*) AS total FROM calls${sql}`, params);
-    const rows = await query<CallRow>(`SELECT * FROM calls${sql} ORDER BY created_at DESC, id LIMIT ? OFFSET ?`, [...params, limit, offset]);
+    const total = await get<{ total: number }>(`SELECT COUNT(*) AS total FROM calls c${sql}`, params);
+    const rows = await query<CallRow>(`SELECT ${CALL_SELECT} FROM calls c${sql} ORDER BY c.created_at DESC, c.id LIMIT ? OFFSET ?`, [...params, limit, offset]);
     return c.json({ calls: rows.map(publicCall), total: total?.total || 0, page, limit }, 200);
   });
 
@@ -193,7 +204,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     },
   });
   app.openapi(getOne, async (c) => {
-    const row = await get<CallRow>("SELECT * FROM calls WHERE id = ?", [c.req.valid("param").id]);
+    const row = await loadCall(c.req.valid("param").id);
     if (!row) return c.json({ error: "Call not found" }, 404);
     return c.json({ call: publicCall(row) }, 200);
   });
@@ -202,7 +213,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     method: "post",
     path: "/api/calls/{id}/hangup",
     tags: ["Calls"],
-    summary: "End a call from the server side (used by API mode; browser mode hangs up through the SDK)",
+    summary: "End a call from the server side (API mode; browser mode hangs up through the SDK). On an inbound call this only takes you off the line.",
     request: { params: z.object({ id: z.string() }) },
     responses: {
       200: { description: "Call", content: { "application/json": { schema: z.object({ call: CallSchema }) } } },
@@ -214,6 +225,19 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     const id = c.req.valid("param").id;
     const row = await get<CallRow>("SELECT * FROM calls WHERE id = ?", [id]);
     if (!row) return c.json({ error: "Call not found" }, 404);
+    if (row.mode === "conference") {
+      // Inbound: hanging up means leaving. The caller is ended (or sent to
+      // voicemail) by settle() once the last rep is gone.
+      const mine = await get<{ twilio_call_sid: string | null }>("SELECT twilio_call_sid FROM call_legs WHERE call_id = ? AND user_id = ? AND status = 'joined'", [id, userKey(c)]);
+      if (mine?.twilio_call_sid) {
+        try {
+          await endCall(c.env, mine.twilio_call_sid);
+        } catch (e) {
+          if (e instanceof TwilioError && e.status !== 404) return c.json({ error: e.message }, 502);
+        }
+      }
+      return c.json({ call: publicCall((await loadCall(id))!) }, 200);
+    }
     if ((ACTIVE_CALL_STATUSES as readonly string[]).includes(row.status)) {
       const sid = row.parent_call_sid || row.twilio_call_sid;
       if (sid) {
@@ -230,7 +254,7 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
         await run("UPDATE leads SET status = 'called', updated_at = datetime('now') WHERE id = ? AND status = 'calling'", [row.lead_id]);
       }
     }
-    return c.json({ call: publicCall((await get<CallRow>("SELECT * FROM calls WHERE id = ?", [id]))!) }, 200);
+    return c.json({ call: publicCall((await loadCall(id))!) }, 200);
   });
 
   const outcome = createRoute({
@@ -253,23 +277,26 @@ export function registerCallRoutes(app: OpenAPIHono<Env>) {
     const row = await get<CallRow>("SELECT * FROM calls WHERE id = ?", [id]);
     if (!row) return c.json({ error: "Call not found" }, 404);
     await run("UPDATE calls SET outcome = ?, notes = ? WHERE id = ?", [body.outcome, body.notes ?? row.notes, id]);
+    // Inbound calls end on Twilio's word, and the caller's lead status is not a calling-list state.
+    if (row.direction === "inbound") return c.json({ call: publicCall((await loadCall(id))!) }, 200);
     // A stuck "initiated" (browser never connected) is closed out here so it stops blocking the rep.
     if ((ACTIVE_CALL_STATUSES as readonly string[]).includes(row.status)) {
       await run("UPDATE calls SET status = 'canceled', ended_at = COALESCE(ended_at, datetime('now')) WHERE id = ? AND status IN (" + ACTIVE_IN + ")", [id]);
     }
     const leadStatus = body.outcome === "do_not_call" ? "do_not_call" : "called";
     await run("UPDATE leads SET status = ?, updated_at = datetime('now') WHERE id = ?", [leadStatus, row.lead_id]);
-    return c.json({ call: publicCall((await get<CallRow>("SELECT * FROM calls WHERE id = ?", [id]))!) }, 200);
+    return c.json({ call: publicCall((await loadCall(id))!) }, 200);
   });
 
-  // Recording proxy. Not on the OpenAPI surface: it streams audio, not JSON.
-  app.get("/api/calls/:id/recording", async (c) => {
-    const row = await get<CallRow>("SELECT recording_url FROM calls WHERE id = ?", [c.req.param("id")]);
-    if (!row?.recording_url) return c.json({ error: "No recording for this call" }, 404);
+  // Recording and voicemail proxies. Not on the OpenAPI surface: they stream audio, not JSON.
+  for (const kind of ["recording", "voicemail"] as const) app.get(`/api/calls/:id/${kind}`, async (c) => {
+    const row = await get<CallRow>("SELECT recording_url, voicemail_url FROM calls WHERE id = ?", [c.req.param("id")]);
+    const media = kind === "recording" ? row?.recording_url : row?.voicemail_url;
+    if (!media) return c.json({ error: kind === "recording" ? "No recording for this call" : "No voicemail for this call" }, 404);
     if (!providerConfig(c.env).rest) return c.json({ error: "Twilio is not configured" }, 400);
     // Pass Range through and echo the length headers back, so the browser's
     // player can read the duration and seek instead of showing 0:00.
-    const upstream = await fetchRecording(c.env, row.recording_url, c.req.header("range"));
+    const upstream = await fetchRecording(c.env, media, c.req.header("range"));
     if (!upstream.ok && upstream.status !== 206) return c.json({ error: `Twilio returned ${upstream.status} for the recording` }, 502);
     const headers = new Headers({ "content-type": upstream.headers.get("content-type") || "audio/mpeg", "cache-control": "private, max-age=3600" });
     for (const h of ["content-length", "content-range", "accept-ranges"]) {

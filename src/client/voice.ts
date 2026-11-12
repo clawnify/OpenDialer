@@ -1,5 +1,7 @@
-// Thin wrapper over the Twilio Voice SDK. One Device per page, reused across
-// calls; the token is refreshed from the server whenever a call starts.
+// Thin wrapper over the Twilio Voice SDK. One Device per page, shared by the
+// outbound dialer and inbound ringing (PhoneProvider owns the instance). The
+// token is refreshed whenever a call starts and before it expires while the
+// device is registered for inbound calls.
 
 import { Call, Device } from "@twilio/voice-sdk";
 
@@ -20,6 +22,45 @@ export class VoiceClient {
 
   static get supported(): boolean {
     return Device.isSupported;
+  }
+
+  /** Inbound: register under this rep's identity so calls to client:<identity> ring here. */
+  async register(token: string, edge: string | null, onIncoming: (call: Call) => void, refreshToken: () => Promise<string>): Promise<void> {
+    const device = this.ensure(token, edge);
+    device.removeAllListeners("incoming");
+    device.removeAllListeners("tokenWillExpire");
+    device.on("incoming", onIncoming);
+    device.on("tokenWillExpire", () => {
+      refreshToken().then((t) => device.updateToken(t)).catch(() => {});
+    });
+    if (device.state === Device.State.Registered) return;
+    this.lastDeviceError = null;
+    try {
+      await device.register();
+    } catch (e) {
+      // Like connect(), the rejection can carry no value; the device error event explains it.
+      throw new Error(friendly((e as { message?: string; code?: number } | undefined) || this.lastDeviceError || {}));
+    }
+  }
+
+  async unregister(): Promise<void> {
+    if (this.device?.state === Device.State.Registered) await this.device.unregister();
+  }
+
+  /** Pick up a ringing inbound call. */
+  accept(call: Call, ev: VoiceEvents): void {
+    this.call = call;
+    this.watch(call, ev);
+    call.on("accept", () => ev.onAccept?.());
+    call.accept();
+  }
+
+  mute(muted: boolean): void {
+    this.call?.mute(muted);
+  }
+
+  get muted(): boolean {
+    return this.call?.isMuted() ?? false;
   }
 
   ensure(token: string, edge: string | null): Device {
@@ -54,6 +95,10 @@ export class VoiceClient {
     this.call = call;
     call.on("ringing", () => ev.onRinging?.());
     call.on("accept", () => ev.onAccept?.());
+    this.watch(call, ev);
+  }
+
+  private watch(call: Call, ev: VoiceEvents): void {
     call.on("disconnect", () => {
       this.call = null;
       this.releaseMic();
